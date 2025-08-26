@@ -38,30 +38,46 @@ def find_link_tag(url, type):
                         print("No matching <a> tag with 'coverage' in href found for national: " + national)
                 link_url = list(set(link_url))
             case '2025':
+                with open("avoid.txt", "r") as f:
+                    link_to_avoid = f.read().splitlines()
                 h5s = soup.find_all("h5", text=lambda text: text and ("Calling" in text or "Battle Hardened" in text or "Pro Tour" in text))
                 link_url = []
                 for h5 in h5s:
                     name = h5.get_text(strip=True)
                     link = guess_link_url(name)
-                    if check_if_url_valid(link):
+                    if link in link_to_avoid:
+                        print("Guessed link is in avoid list: " + link)
+                        continue
+                    elif check_if_url_valid(link):
                         link_url.append(link)
                     else:
                         print("Guessed link is not valid: " + link)
+                        link_to_avoid.append(link)
+                with open("avoid.txt", "w") as f:
+                    for link in link_to_avoid:
+                        f.write(link + "\n")                
+                        
             case 'high tier':
                 link_tag = soup.find("a", class_="item-link", href=lambda href: href and "pairings-results-and-standing" in href)
                 if link_tag and 'href' in link_tag.attrs:
                     headers = {"Content-Language": "en"}
-                    response = requests.get(url, headers=headers)
+                    response = requests.get(link_tag['href'], headers=headers)
                     response.raise_for_status()
                     html_content = response.text
+                    print(f"Followed link: {link_tag['href']}")
                     soup = BeautifulSoup(html_content, 'html.parser')
                     
                     link_url = []
-                    tournaments = soup.find("a", class_="item-link", href=lambda href: href and "coverage" in href)
+                    tournaments = soup.find_all("a", class_="item-link", href=lambda href: href and "coverage" in href)
                     for tournament in tournaments:
-                        p = tournament.find("p", text=lambda text: text and ("Classic Constructed" in text))
-                        if p:
-                            link_url.append(tournament['href'])
+                        text = tournament.get_text(strip=True)
+                        try:
+                            if "Classic Constructed" in str(text):
+                                print(f"Found tournament: {text}")
+                                link_url.append((str(text).replace("Classic Constructed", ""), tournament['href']))
+                        except:
+                            print("No Classic Constructed tournament found in link: " + text)
+                            
                 else:
                     print("No matching <a> tag with 'coverage' in href found.")
                     return None
@@ -77,7 +93,8 @@ def find_link_tag(url, type):
                 cells = None
                 for row in table[1:] if table else None:
                     cells = row.find_all("td")
-                    if "Classic Constructed" in cells[0].get_text(separator=" ", strip=True):
+                    text = cells[0].get_text(separator=" ", strip=True)
+                    if "Classic Constructed" in text in text:
                         break
                     print("No Classic Constructed rounds!")
                     return None
@@ -129,7 +146,7 @@ def extract_data(url):
                 decklist_link = cells[3].a["href"] if cells[3].a else None
             except:
                 decklist_link = None
-                print("No decklist link found for row: " + str(row))
+                print("No decklist link found for Player: " + str(cells[1].text.strip()))
             #decklists[player] = {"rank": rank, "decklist": decklist_link}
             if decklist_link:
                 decklist = get_decklist("https://fabtcg.com" + decklist_link)
@@ -255,11 +272,15 @@ if __name__ == "__main__":
                 print("Processing high tier tournament: " + name)
             print(f"Processing tournament: {name}")
             high_tier = find_link_tag(tournament, "high tier") if tournament else None
-            coverage_details = find_link_tag(high_tier, "coverage") if high_tier else None
-            if coverage_details:
-                decklists = extract_data(coverage_details["standings"]) if coverage_details else None
-                json_object = json.dumps(decklists, indent=4)
-                with open(f"high_tier_decklists_{name}.json", "w") as outfile:
-                    outfile.write(json_object)
+            print(f"High tier links: {high_tier}")
+            for tournament_name, link in high_tier:
+                print(f"High tier tournament link: {link}")
+                coverage_details = find_link_tag(link, "coverage") if link else None
+                print(f"Coverage details: {coverage_details}")
+                if coverage_details:
+                    decklists = extract_data(coverage_details["standings"]) if coverage_details else None
+                    json_object = json.dumps(decklists, indent=4)
+                    with open(f"high_tier_decklists_{name}_{str(tournament_name).replace(" ", "-").lower()}.json", "w") as outfile:
+                        outfile.write(json_object)
     
     
