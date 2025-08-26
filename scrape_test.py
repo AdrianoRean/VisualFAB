@@ -91,16 +91,22 @@ def find_link_tag(url, type):
             case "coverage":
                 table = soup.table.find_all("tr")
                 cells = None
-                for row in table[1:] if table else None:
+                flag = False
+                rounds = 0
+                pairings = []
+                for i, row in enumerate(table[1:]) if table else None:
                     cells = row.find_all("td")
                     text = cells[0].get_text(separator=" ", strip=True)
                     if "Classic Constructed" in text in text:
-                        break
+                        pairings.append(("https://fabtcg.com" + cells[2].a["href"], i))
+                        flag = True
+                    if cells[3].a:
+                        rounds += 1
+                if not flag:
                     print("No Classic Constructed rounds!")
                     return None
-                pairings = "https://fabtcg.com" + cells[2].a["href"]
                 standings = "https://fabtcg.com" + cells[3].a["href"]
-                link_url = {"standings": standings, "pairings": pairings}
+                link_url = {"standings": standings, "pairings": pairings, "rounds": rounds}
                     
         
         #print(f"Found URL in <link> tag: {link_url}")
@@ -123,8 +129,11 @@ def check_if_url_valid(url):
         return True
     except requests.exceptions.RequestException as e:
         return False
+
+def get_decklist_name(decklist):
+    return decklist["metadata"]["ID"] + " - " + decklist["metadata"]["Date"] + " - " + decklist["metadata"]["Event"]
     
-def extract_data(url):
+def extract_decklists(url):
     try:
         # Fetch the HTML content of the page
         headers = {"Content-Language": "en"}
@@ -162,6 +171,37 @@ def extract_data(url):
         print(f"An error occurred: {e}")
         return None
     
+def get_decklist_metadata(metadata_table):
+    
+    #Table 1 Metadata extraction
+    rows = metadata_table.find_all("tr")
+    metadata = {}
+    for row in rows:
+        key = row.th.text.strip()
+        if key != "Player Name / ID":
+            value = row.td.get_text(separator=" ", strip=True)
+            metadata[key] = value
+        else:
+            player_info = row.td.get_text(separator=" ", strip=True)
+            try:
+                metadata["Player Name"] = player_info[:-11]
+                metadata["ID"] = player_info[-9:-1]
+            except:
+                print("Error parsing Player Name / ID, Player Name is: " + player_info + ", ID set to empty string")
+                metadata["Player Name"] = player_info
+                metadata["ID"] = ""
+    
+    metadata["Tournament Rounds"] = 0
+    metadata["Wins"] = 0
+    metadata["Losses"] = 0
+    metadata["Draws"] = 0
+    metadata["Played Rounds"] = 0
+    metadata["Top"] = False
+    metadata["Top Rounds"] = 0
+    metadata["Matchups"] = []
+    
+    return metadata
+    
 def get_decklist(url):
     try:
         # Fetch the HTML content of the page
@@ -177,26 +217,7 @@ def get_decklist(url):
         tables = soup.find_all("table")
         metadata_table = tables[0]
         
-        #Table 1 Metadata extraction
-        rows = metadata_table.find_all("tr")
-        metadata = {}
-        for row in rows:
-            key = row.th.text.strip()
-            if key != "Player Name / ID":
-                value = row.td.get_text(separator=" ", strip=True)
-                metadata[key] = value
-            else:
-                player_info = row.td.get_text(separator=" ", strip=True)
-                try:
-                    metadata["Player Name"] = player_info[:-11]
-                    metadata["ID"] = player_info[-9:-1]
-                except:
-                    print("Error parsing Player Name / ID, Player Name is: " + player_info + ", ID set to empty string")
-                    metadata["Player Name"] = player_info
-                    metadata["ID"] = ""
-        
-        #Initialize decklist structure
-        decklist = {"metadata": metadata, "cards": []}
+        metadata = get_decklist_metadata(metadata_table)
         
         #Decklist extraction
         for table in tables[1:]:
@@ -216,13 +237,114 @@ def get_decklist(url):
                 decklist["cards"].append({"color": color, "quantity": quantity, "card_name": card_name})
         
         #print(f"Extracted decklist: {decklist}")
+        decklist = {"metadata": metadata, "cards": []}
         return decklist
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
         return None
     
-def get_decklist_name(decklist):
-    return decklist["metadata"]["ID"] + " - " + decklist["metadata"]["Date"] + " - " + decklist["metadata"]["Event"]
+def update_results(url, round, top, decklists):
+    try:
+        # Fetch the HTML content of the page
+        headers = {"Content-Language": "en"}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        html_content = response.text
+
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        links = soup.find_all("a", class_="item-link", href=lambda href: href and "decklist" in href)
+        results_names_1 = []
+        results_names_2 = []
+        
+        for i, decklist_link in enumerate(links):
+            link = "https://fabtcg.com" + decklist_link['href']
+            headers = {"Content-Language": "en"}
+            response = requests.get(link, headers=headers)
+            response.raise_for_status()
+            html_content = response.text
+
+            # Parse the HTML content using BeautifulSoup
+            soup2 = BeautifulSoup(html_content, 'html.parser')
+            
+            tables = soup2.find_all("table")
+            decklist = get_decklist_metadata(tables[0])
+            name = get_decklist_name(decklist)
+            
+            if i % 2 == 0:
+                results_names_1.append({"name": name, "hero": decklist["metedata"]["Hero"]})
+            else:
+                results_names_2.append({"name": name, "hero": decklist["metedata"]["Hero"]})
+        
+        results = soup.find_all("div", class_="tournament-coverage__result")
+        
+        for i, result in enumerate(results):
+            text = result.get_text(separator=" ", strip=True)
+            if "1" in text:
+                decklists[results_names_1[i]["name"]]["Matchups"].append({
+                    "result": True,
+                    "opponent_hero": results_names_2[i]["hero"],
+                    "round": round,
+                    "top": top
+                })
+                decklists[results_names_1[i]["name"]]["Wins"] += 1
+                decklists[results_names_2[i]["name"]]["Matchups"].append({
+                    "result": False,
+                    "opponent_hero": results_names_2[i]["hero"],
+                    "round": round,
+                    "top": top
+                })
+                decklists[results_names_2[i]["name"]]["Losses"] += 1
+            elif "2" in text:
+                decklists[results_names_1[i]["name"]]["Matchups"].append({
+                    "result": False,
+                    "opponent_hero": results_names_2[i]["hero"],
+                    "round": round,
+                    "top": top
+                })
+                decklists[results_names_1[i]["name"]]["Losses"] += 1
+                decklists[results_names_2[i]["name"]]["Matchups"].append({
+                    "result": True,
+                    "opponent_hero": results_names_2[i]["hero"],
+                    "round": round,
+                    "top": top
+                })
+                decklists[results_names_2[i]["name"]]["Wins"] += 1
+            else:
+                decklists[results_names_1[i]["name"]]["Matchups"].append({
+                    "result": None,
+                    "opponent_hero": results_names_2[i]["hero"],
+                    "round": round,
+                    "top": top
+                })
+                decklists[results_names_1[i]["name"]]["Draws"] += 1
+                decklists[results_names_2[i]["name"]]["Matchups"].append({
+                    "result": None,
+                    "opponent_hero": results_names_2[i]["hero"],
+                    "round": round,
+                    "top": top
+                })
+                decklists[results_names_2[i]["name"]]["Draws"] += 1
+            
+            if top:
+                decklists[results_names_1[i]["name"]]["Top"] = True
+                decklists[results_names_2[i]["name"]]["Top"] = True
+                decklists[results_names_1[i]["name"]]["Top Rounds"] += 1
+                decklists[results_names_2[i]["name"]]["Top Rounds"] += 1
+                
+            decklists[results_names_1[i]["name"]]["Played Rounds"] += 1
+            decklists[results_names_2[i]["name"]]["Played Rounds"] += 1
+        
+        return decklists
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        return None
+    
+def update_decklists_results(pairings, total_rounds, decklists):
+    for link, round in pairings:
+        decklists = update_results(link, round, False, decklists)
+    return decklists
 
 # Example usage
 if __name__ == "__main__":
@@ -251,7 +373,7 @@ if __name__ == "__main__":
             coverage = find_link_tag(national, "national") if national else None
             coverage_details = find_link_tag(coverage, "coverage") if coverage else None
             #print(coverage_details)
-            decklists = extract_data(coverage_details["standings"]) if coverage_details else None
+            decklists = extract_decklists(coverage_details["standings"]) if coverage_details else None
             if decklists is None:
                 print("No decklists found for national: " + name)
                 continue
@@ -278,9 +400,15 @@ if __name__ == "__main__":
                 coverage_details = find_link_tag(link, "coverage") if link else None
                 print(f"Coverage details: {coverage_details}")
                 if coverage_details:
-                    decklists = extract_data(coverage_details["standings"]) if coverage_details else None
-                    json_object = json.dumps(decklists, indent=4)
-                    with open(f"high_tier_decklists_{name}_{str(tournament_name).replace(" ", "-").lower()}.json", "w") as outfile:
-                        outfile.write(json_object)
+                    decklists = extract_decklists(coverage_details["standings"]) if coverage_details else None
+                    
+                    # UPDATE RESULTS
+                    deckslists = 
+                    
+                    
+                    
+                json_object = json.dumps(decklists, indent=4)
+                with open(f"high_tier_decklists_{name}_{str(tournament_name).replace(" ", "-").lower()}.json", "w") as outfile:
+                    outfile.write(json_object)
     
     
