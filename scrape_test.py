@@ -92,19 +92,24 @@ def find_link_tag(url, type):
                 table = soup.table.find_all("tr")
                 cells = None
                 flag = False
+                top = False
                 rounds = 0
                 pairings = []
                 for i, row in enumerate(table[1:]) if table else None:
                     cells = row.find_all("td")
                     text = cells[0].get_text(separator=" ", strip=True)
                     if "Classic Constructed" in text in text:
-                        pairings.append(("https://fabtcg.com" + cells[2].a["href"], i))
+                        pairings.append(("https://fabtcg.com" + cells[2].a["href"], i, top))
                         flag = True
-                    if cells[3].a:
+                    if len(cells) > 3 and cells[3].a:
                         rounds += 1
+                    else:
+                        top = True
                 if not flag:
                     print("No Classic Constructed rounds!")
                     return None
+                first_row = table[1] if table else None
+                cells = first_row.find_all("td") if first_row else None
                 standings = "https://fabtcg.com" + cells[3].a["href"]
                 link_url = {"standings": standings, "pairings": pairings, "rounds": rounds}
                     
@@ -191,14 +196,14 @@ def get_decklist_metadata(metadata_table):
                 metadata["Player Name"] = player_info
                 metadata["ID"] = ""
     
-    metadata["Tournament Rounds"] = 0
-    metadata["Wins"] = 0
-    metadata["Losses"] = 0
-    metadata["Draws"] = 0
-    metadata["Played Rounds"] = 0
-    metadata["Top"] = False
-    metadata["Top Rounds"] = 0
-    metadata["Matchups"] = []
+    metadata["tournament rounds"] = 0
+    metadata["wins"] = 0
+    metadata["losses"] = 0
+    metadata["draws"] = 0
+    metadata["played rounds"] = 0
+    metadata["top"] = False
+    metadata["top rounds"] = 0
+    metadata["matchups"] = []
     
     return metadata
     
@@ -218,6 +223,7 @@ def get_decklist(url):
         metadata_table = tables[0]
         
         metadata = get_decklist_metadata(metadata_table)
+        decklist = {"metadata": metadata, "cards": []}
         
         #Decklist extraction
         for table in tables[1:]:
@@ -237,7 +243,6 @@ def get_decklist(url):
                 decklist["cards"].append({"color": color, "quantity": quantity, "card_name": card_name})
         
         #print(f"Extracted decklist: {decklist}")
-        decklist = {"metadata": metadata, "cards": []}
         return decklist
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
@@ -282,59 +287,59 @@ def update_results(url, round, top, decklists):
         for i, result in enumerate(results):
             text = result.get_text(separator=" ", strip=True)
             if "1" in text:
-                decklists[results_names_1[i]["name"]]["Matchups"].append({
+                decklists[results_names_1[i]["name"]]["metadata"]["matchups"].append({
                     "result": True,
                     "opponent_hero": results_names_2[i]["hero"],
                     "round": round,
                     "top": top
                 })
-                decklists[results_names_1[i]["name"]]["Wins"] += 1
-                decklists[results_names_2[i]["name"]]["Matchups"].append({
+                decklists[results_names_1[i]["name"]]["metadata"]["wins"] += 1
+                decklists[results_names_2[i]["name"]]["metadata"]["matchups"].append({
                     "result": False,
                     "opponent_hero": results_names_2[i]["hero"],
                     "round": round,
                     "top": top
                 })
-                decklists[results_names_2[i]["name"]]["Losses"] += 1
+                decklists[results_names_2[i]["name"]]["metadata"]["losses"] += 1
             elif "2" in text:
-                decklists[results_names_1[i]["name"]]["Matchups"].append({
+                decklists[results_names_1[i]["name"]]["metadata"]["matchups"].append({
                     "result": False,
                     "opponent_hero": results_names_2[i]["hero"],
                     "round": round,
                     "top": top
                 })
-                decklists[results_names_1[i]["name"]]["Losses"] += 1
-                decklists[results_names_2[i]["name"]]["Matchups"].append({
+                decklists[results_names_1[i]["name"]]["metadata"]["losses"] += 1
+                decklists[results_names_2[i]["name"]]["metadata"]["matchups"].append({
                     "result": True,
                     "opponent_hero": results_names_2[i]["hero"],
                     "round": round,
                     "top": top
                 })
-                decklists[results_names_2[i]["name"]]["Wins"] += 1
+                decklists[results_names_2[i]["name"]]["metadata"]["wins"] += 1
             else:
-                decklists[results_names_1[i]["name"]]["Matchups"].append({
+                decklists[results_names_1[i]["name"]]["metadata"]["matchups"].append({
                     "result": None,
                     "opponent_hero": results_names_2[i]["hero"],
                     "round": round,
                     "top": top
                 })
-                decklists[results_names_1[i]["name"]]["Draws"] += 1
-                decklists[results_names_2[i]["name"]]["Matchups"].append({
+                decklists[results_names_1[i]["name"]]["metadata"]["draws"] += 1
+                decklists[results_names_2[i]["name"]]["metadata"]["matchups"].append({
                     "result": None,
                     "opponent_hero": results_names_2[i]["hero"],
                     "round": round,
                     "top": top
                 })
-                decklists[results_names_2[i]["name"]]["Draws"] += 1
+                decklists[results_names_2[i]["name"]]["metadata"]["draws"] += 1
             
             if top:
-                decklists[results_names_1[i]["name"]]["Top"] = True
-                decklists[results_names_2[i]["name"]]["Top"] = True
-                decklists[results_names_1[i]["name"]]["Top Rounds"] += 1
-                decklists[results_names_2[i]["name"]]["Top Rounds"] += 1
+                decklists[results_names_1[i]["name"]]["metadata"]["top"] = True
+                decklists[results_names_2[i]["name"]]["metadata"]["top"] = True
+                decklists[results_names_1[i]["name"]]["metadata"]["top rounds"] += 1
+                decklists[results_names_2[i]["name"]]["metadata"]["top rounds"] += 1
                 
-            decklists[results_names_1[i]["name"]]["Played Rounds"] += 1
-            decklists[results_names_2[i]["name"]]["Played Rounds"] += 1
+            decklists[results_names_1[i]["name"]]["metadata"]["played rounds"] += 1
+            decklists[results_names_2[i]["name"]]["metadata"]["played rounds"] += 1
         
         return decklists
     except requests.exceptions.RequestException as e:
@@ -342,13 +347,15 @@ def update_results(url, round, top, decklists):
         return None
     
 def update_decklists_results(pairings, total_rounds, decklists):
-    for link, round in pairings:
-        decklists = update_results(link, round, False, decklists)
+    for link, round, top in pairings:
+        decklists = update_results(link, round, top, decklists)
+    for decklist in decklists:
+        decklist["metadata"]["tournament rounds"] = total_rounds
     return decklists
 
 # Example usage
 if __name__ == "__main__":
-    nationals_flag = False
+    nationals_flag = True
     high_tier_flag = True
 
     #NATIONALS
@@ -365,7 +372,7 @@ if __name__ == "__main__":
         for national in nationals:
             decklists = []
             name = national.split("/")[-2]
-            if os.path.exists(f"nationals_decklists_{name}.json"):
+            if os.path.exists(f"decklists/nationals_decklists_{name}.json"):
                 print(f"Already done {name} national!")
                 continue
             else:
@@ -378,8 +385,36 @@ if __name__ == "__main__":
                 print("No decklists found for national: " + name)
                 continue
             json_object = json.dumps(decklists, indent=4)
-            with open(f"nationals_decklists_{name}.json", "w") as outfile:
+            with open(f"decklists/nationals_decklists_{name}.json", "w") as outfile:
                 outfile.write(json_object)
+    
+        #UPDATE RESULTS
+        for national in nationals:
+            name = national.split("/")[-2]
+            if not os.path.exists(f"decklists/nationals_decklists_{name}.json"):
+                print(f"No decklists file found for {name} national, skipping results update!")
+                continue
+            else:
+                print("Updating results for national: " + name)
+            if os.path.exists(f"decklists/nationals_decklists_results_{name}.json"):
+                print(f"Results file found for {name} national, skipping!")
+                continue
+            with open(f"decklists/nationals_decklists_results_{name}.json", "r") as infile:
+                decklists = json.load(infile)
+            coverage = find_link_tag(national, "national") if national else None
+            coverage_details = find_link_tag(coverage, "coverage") if coverage else None
+            if coverage_details is None:
+                print("No coverage details found for national: " + name)
+                continue
+            #print(coverage_details)
+            decklists = update_decklists_results(coverage_details["pairings"], coverage_details["rounds"], decklists) if decklists else None
+            if decklists is None:
+                print("No decklists found for national: " + name)
+                continue
+            json_object = json.dumps(decklists, indent=4)
+            with open(f"decklists/nationals_decklists_results_{name}.json", "w") as outfile:
+                outfile.write(json_object)
+        
     
     #HIGH TIER TOURNAMENTS
     if high_tier_flag:
@@ -387,7 +422,7 @@ if __name__ == "__main__":
         tournaments_2025 = find_link_tag(page_url, "2025")
         for tournament in tournaments_2025:
             name = tournament.split("/")[-2]
-            if os.path.exists(f"high_tier_decklists_{name}.json"):
+            if os.path.exists(f"decklists/high_tier_decklists_{name}.json"):
                 print(f"Already done {name} high tier tournament!")
                 continue
             else:
@@ -402,13 +437,42 @@ if __name__ == "__main__":
                 if coverage_details:
                     decklists = extract_decklists(coverage_details["standings"]) if coverage_details else None
                     
-                    # UPDATE RESULTS
-                    deckslists = 
-                    
-                    
+                else:
+                    print("No coverage details found for tournament: " + name)
+                    continue                    
                     
                 json_object = json.dumps(decklists, indent=4)
-                with open(f"high_tier_decklists_{name}_{str(tournament_name).replace(" ", "-").lower()}.json", "w") as outfile:
+                with open(f"decklists/high_tier_decklists_{name}_{str(tournament_name).replace(' ', '-').replace('/', '-').lower()}.json", "w") as outfile:
+                    outfile.write(json_object)
+    
+        #UPDATE RESULTS
+        for tournament in tournaments_2025:
+            name = tournament.split("/")[-2]
+            high_tier = find_link_tag(tournament, "high tier") if tournament else None
+            print(f"Processing high tier tournament: " + name)
+            for tournament_name, link in high_tier:
+                file_name = f"decklists/high_tier_decklists_{name}_{str(tournament_name).replace(' ', '-').replace('/', '-').lower()}.json"
+                if not os.path.exists(file_name):
+                    print(f"No decklists file found for {name} high tier tournament, skipping results update!")
+                    continue
+                else:
+                    print("Updating results for high tier tournament: " + name)
+                if os.path.exists(f"decklists/high_tier_decklists_results_{name}_{str(tournament_name).replace(' ', '-').replace('/', '-').lower()}.json"):
+                    print(f"Results file found for {name} high tier tournament, skipping!")
+                    continue
+                with open(file_name, "r") as infile:
+                    decklists = json.load(infile)
+                coverage_details = find_link_tag(link, "coverage") if link else None
+                if coverage_details is None:
+                    print("No coverage details found for tournament: " + name)
+                    continue
+                #print(coverage_details)
+                decklists = update_decklists_results(coverage_details["pairings"], coverage_details["rounds"], decklists) if decklists else None
+                if decklists is None:
+                    print("No decklists found for tournament: " + name)
+                    continue
+                json_object = json.dumps(decklists, indent=4)
+                with open(file_name, "w") as outfile:
                     outfile.write(json_object)
     
     
