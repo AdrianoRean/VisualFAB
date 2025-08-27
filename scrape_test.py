@@ -92,19 +92,19 @@ def find_link_tag(url, type):
                 table = soup.table.find_all("tr")
                 cells = None
                 flag = False
-                top = False
+                Top = False
                 rounds = 0
                 pairings = []
                 for i, row in enumerate(table[1:]) if table else None:
                     cells = row.find_all("td")
                     text = cells[0].get_text(separator=" ", strip=True)
                     if "Classic Constructed" in text in text:
-                        pairings.append(("https://fabtcg.com" + cells[2].a["href"], i, top))
+                        pairings.append(("https://fabtcg.com" + cells[2].a["href"], i, Top))
                         flag = True
                     if len(cells) > 3 and cells[3].a:
                         rounds += 1
                     else:
-                        top = True
+                        Top = True
                 if not flag:
                     print("No Classic Constructed rounds!")
                     return None
@@ -136,7 +136,7 @@ def check_if_url_valid(url):
         return False
 
 def get_decklist_name(decklist):
-    return decklist["metadata"]["ID"] + " - " + decklist["metadata"]["Date"] + " - " + decklist["metadata"]["Event"]
+    return decklist["Metadata"]["ID"] + " - " + decklist["Metadata"]["Date"] + " - " + decklist["Metadata"]["Event"]
     
 def extract_decklists(url):
     try:
@@ -151,7 +151,7 @@ def extract_decklists(url):
         
         # Find the <link> tag
         table = soup.table.find_all("tr")
-        decklists = []
+        decklists = {}
         for row in table[1:]:
             cells = row.find_all("td")
             #rank = cells[0].text.strip()
@@ -167,8 +167,7 @@ def extract_decklists(url):
                 if not decklist:
                     print("No decklist found for link: " + decklist_link)
                     continue
-                decklist["id"] = get_decklist_name(decklist)
-                decklists.append(decklist)
+                decklists[get_decklist_name(decklist)] = decklist
         
         #print(f"Extracted decklists: {decklists}")
         return decklists
@@ -196,14 +195,14 @@ def get_decklist_metadata(metadata_table):
                 metadata["Player Name"] = player_info
                 metadata["ID"] = ""
     
-    metadata["tournament rounds"] = 0
-    metadata["wins"] = 0
-    metadata["losses"] = 0
-    metadata["draws"] = 0
-    metadata["played rounds"] = 0
-    metadata["top"] = False
-    metadata["top rounds"] = 0
-    metadata["matchups"] = []
+    metadata["Tournament Rounds"] = 0
+    metadata["Wins"] = 0
+    metadata["Losses"] = 0
+    metadata["Draws"] = 0
+    metadata["Played Rounds"] = 0
+    metadata["Top"] = False
+    metadata["Top Rounds"] = 0
+    metadata["Matchups"] = []
     
     return metadata
     
@@ -223,7 +222,7 @@ def get_decklist(url):
         metadata_table = tables[0]
         
         metadata = get_decklist_metadata(metadata_table)
-        decklist = {"metadata": metadata, "cards": []}
+        decklist = {"Metadata": metadata, "Cards": []}
         
         #Decklist extraction
         for table in tables[1:]:
@@ -240,7 +239,7 @@ def get_decklist(url):
                     card_name = card_name[:-6]
                 else:
                     color = ""
-                decklist["cards"].append({"color": color, "quantity": quantity, "card_name": card_name})
+                decklist["Cards"].append({"color": color, "quantity": quantity, "card_name": card_name})
         
         #print(f"Extracted decklist: {decklist}")
         return decklist
@@ -248,7 +247,7 @@ def get_decklist(url):
         print(f"An error occurred: {e}")
         return None
     
-def update_results(url, round, top, decklists):
+def update_results(url, round, Top, decklists):
     try:
         # Fetch the HTML content of the page
         headers = {"Content-Language": "en"}
@@ -259,14 +258,23 @@ def update_results(url, round, top, decklists):
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        links = soup.find_all("a", class_="item-link", href=lambda href: href and "decklist" in href)
+        links = soup.find_all("a", href=lambda href: href and "decklist" in href and "coverage" in href)
         results_names_1 = []
         results_names_2 = []
-        
+
+        if len(links) == 0:
+            print("No decklist links found.")
+            return None
+        print(f"Links found: {len(links)}")
+
         for i, decklist_link in enumerate(links):
             link = "https://fabtcg.com" + decklist_link['href']
             headers = {"Content-Language": "en"}
-            response = requests.get(link, headers=headers)
+            try:
+                response = requests.get(link, headers=headers)
+            except:
+                print(f"Failed to retrieve decklist from {link}")
+                continue
             response.raise_for_status()
             html_content = response.text
 
@@ -274,72 +282,75 @@ def update_results(url, round, top, decklists):
             soup2 = BeautifulSoup(html_content, 'html.parser')
             
             tables = soup2.find_all("table")
-            decklist = get_decklist_metadata(tables[0])
-            name = get_decklist_name(decklist)
-            
+            metadata = get_decklist_metadata(tables[0])
+            name = get_decklist_name({"Metadata": metadata})
+
             if i % 2 == 0:
-                results_names_1.append({"name": name, "hero": decklist["metedata"]["Hero"]})
+                results_names_1.append({"Name": name, "Hero": metadata["Hero"]})
             else:
-                results_names_2.append({"name": name, "hero": decklist["metedata"]["Hero"]})
-        
+                results_names_2.append({"Name": name, "Hero": metadata["Hero"]})
+
+            #print(f"Player {name} with Hero {decklist['metadata']['Hero']} processed. Index {i}")
+
         results = soup.find_all("div", class_="tournament-coverage__result")
         
         for i, result in enumerate(results):
             text = result.get_text(separator=" ", strip=True)
+            print(f"For round {i} result text: {text}")
             if "1" in text:
-                decklists[results_names_1[i]["name"]]["metadata"]["matchups"].append({
-                    "result": True,
-                    "opponent_hero": results_names_2[i]["hero"],
-                    "round": round,
-                    "top": top
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Matchups"].append({
+                    "Result": True,
+                    "Opponent Hero": results_names_2[i]["Hero"],
+                    "Round": round,
+                    "Top": Top
                 })
-                decklists[results_names_1[i]["name"]]["metadata"]["wins"] += 1
-                decklists[results_names_2[i]["name"]]["metadata"]["matchups"].append({
-                    "result": False,
-                    "opponent_hero": results_names_2[i]["hero"],
-                    "round": round,
-                    "top": top
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Wins"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Matchups"].append({
+                    "Result": False,
+                    "Opponent Hero": results_names_2[i]["Hero"],
+                    "Round": round,
+                    "Top": Top
                 })
-                decklists[results_names_2[i]["name"]]["metadata"]["losses"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Losses"] += 1
             elif "2" in text:
-                decklists[results_names_1[i]["name"]]["metadata"]["matchups"].append({
-                    "result": False,
-                    "opponent_hero": results_names_2[i]["hero"],
-                    "round": round,
-                    "top": top
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Matchups"].append({
+                    "Result": False,
+                    "Opponent Hero": results_names_2[i]["Hero"],
+                    "Round": round,
+                    "Top": Top
                 })
-                decklists[results_names_1[i]["name"]]["metadata"]["losses"] += 1
-                decklists[results_names_2[i]["name"]]["metadata"]["matchups"].append({
-                    "result": True,
-                    "opponent_hero": results_names_2[i]["hero"],
-                    "round": round,
-                    "top": top
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Losses"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Matchups"].append({
+                    "Result": True,
+                    "Opponent Hero": results_names_2[i]["Hero"],
+                    "Round": round,
+                    "Top": Top
                 })
-                decklists[results_names_2[i]["name"]]["metadata"]["wins"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Wins"] += 1
             else:
-                decklists[results_names_1[i]["name"]]["metadata"]["matchups"].append({
-                    "result": None,
-                    "opponent_hero": results_names_2[i]["hero"],
-                    "round": round,
-                    "top": top
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Matchups"].append({
+                    "Result": None,
+                    "Opponent Hero": results_names_2[i]["Hero"],
+                    "Round": round,
+                    "Top": Top
                 })
-                decklists[results_names_1[i]["name"]]["metadata"]["draws"] += 1
-                decklists[results_names_2[i]["name"]]["metadata"]["matchups"].append({
-                    "result": None,
-                    "opponent_hero": results_names_2[i]["hero"],
-                    "round": round,
-                    "top": top
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Draws"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Matchups"].append({
+                    "Result": None,
+                    "Opponent Hero": results_names_2[i]["Hero"],
+                    "Round": round,
+                    "Top": Top
                 })
-                decklists[results_names_2[i]["name"]]["metadata"]["draws"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Draws"] += 1
             
-            if top:
-                decklists[results_names_1[i]["name"]]["metadata"]["top"] = True
-                decklists[results_names_2[i]["name"]]["metadata"]["top"] = True
-                decklists[results_names_1[i]["name"]]["metadata"]["top rounds"] += 1
-                decklists[results_names_2[i]["name"]]["metadata"]["top rounds"] += 1
+            if Top:
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Top"] = True
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Top"] = True
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Top Rounds"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Top Rounds"] += 1
                 
-            decklists[results_names_1[i]["name"]]["metadata"]["played rounds"] += 1
-            decklists[results_names_2[i]["name"]]["metadata"]["played rounds"] += 1
+            decklists[results_names_1[i]["Name"]]["Metadata"]["Played Rounds"] += 1
+            decklists[results_names_2[i]["Name"]]["Metadata"]["Played Rounds"] += 1
         
         return decklists
     except requests.exceptions.RequestException as e:
@@ -347,10 +358,13 @@ def update_results(url, round, top, decklists):
         return None
     
 def update_decklists_results(pairings, total_rounds, decklists):
-    for link, round, top in pairings:
-        decklists = update_results(link, round, top, decklists)
+    for link, round, Top in pairings:
+        decklists = update_results(link, round, Top, decklists)
+        if decklists is None:
+            print(f"Failed to update results for {link}")
+            return None
     for decklist in decklists:
-        decklist["metadata"]["tournament rounds"] = total_rounds
+        decklist["Metadata"]["Tournament Rounds"] = total_rounds
     return decklists
 
 # Example usage
@@ -370,7 +384,7 @@ if __name__ == "__main__":
         nationals = list(set(nationals))
         
         for national in nationals:
-            decklists = []
+            decklists = {}
             name = national.split("/")[-2]
             if os.path.exists(f"decklists/nationals_decklists_{name}.json"):
                 print(f"Already done {name} national!")
@@ -399,7 +413,7 @@ if __name__ == "__main__":
             if os.path.exists(f"decklists/nationals_decklists_results_{name}.json"):
                 print(f"Results file found for {name} national, skipping!")
                 continue
-            with open(f"decklists/nationals_decklists_results_{name}.json", "r") as infile:
+            with open(f"decklists/nationals_decklists_{name}.json", "r") as infile:
                 decklists = json.load(infile)
             coverage = find_link_tag(national, "national") if national else None
             coverage_details = find_link_tag(coverage, "coverage") if coverage else None
@@ -457,7 +471,8 @@ if __name__ == "__main__":
                     continue
                 else:
                     print("Updating results for high tier tournament: " + name)
-                if os.path.exists(f"decklists/high_tier_decklists_results_{name}_{str(tournament_name).replace(' ', '-').replace('/', '-').lower()}.json"):
+                out_name = f"decklists/high_tier_decklists_results_{name}_{str(tournament_name).replace(' ', '-').replace('/', '-').lower()}.json"
+                if os.path.exists(out_name):
                     print(f"Results file found for {name} high tier tournament, skipping!")
                     continue
                 with open(file_name, "r") as infile:
@@ -472,7 +487,5 @@ if __name__ == "__main__":
                     print("No decklists found for tournament: " + name)
                     continue
                 json_object = json.dumps(decklists, indent=4)
-                with open(file_name, "w") as outfile:
+                with open(out_name, "w") as outfile:
                     outfile.write(json_object)
-    
-    
