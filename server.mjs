@@ -32,6 +32,45 @@ function filterDecklists(decklists, criteria) {
         });
     });
 }
+
+/*function groupDecklists(decklists, groupCriteria) {
+    const grouped = {};
+
+    decklists.forEach(decklist => {
+        const groupKey = groupCriteria.map(criteria => decklist.Metadata[criteria]).join('|');
+        if (!grouped[groupKey]) {
+            grouped[groupKey] = [];
+        }
+        grouped[groupKey].push(decklist);
+    });
+
+    return grouped;
+})*/
+
+function groupDecklists(decklists, groupCriteria) {
+    const grouped = {};
+
+    for (const group of groupCriteria) {
+        const groupKey = group["name"];
+        const grouped_decklists = filterDecklists(decklists, group["filter"]);
+        grouped[groupKey] = grouped_decklists;
+    }
+
+    return grouped;
+}
+
+function calculateWinrates(groupedDecklists) {
+    const winrates = {};
+
+    for (const [group, decklists] of Object.entries(groupedDecklists)) {
+        const totalGames = decklists.reduce((sum, decklist) => sum + decklist.Metadata["Classic Constructed Played Rounds"], 0);
+        const totalWins = decklists.reduce((sum, decklist) => sum + decklist.Metadata["Total Wins"], 0);
+        winrates[group] = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
+    }
+
+    return winrates;
+}
+
 function extractMetadataAndMatchup(decklists) {
     return decklists.map(decklist => ({
         Metadata: decklist.Metadata,
@@ -50,6 +89,19 @@ app.post('/api/decklists', async (req, res) => {
         const criteria = req.body;
         let filtered = filterDecklists(decklists, criteria);
         filtered = extractMetadataAndMatchup(filtered);
+        res.json(filtered);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/decklists/winrate', async (req, res) => {
+    try {
+        const { filterCriteria, groupCriteria } = req.body;
+        let filtered = filterDecklists(decklists, filterCriteria);
+        filtered = extractMetadataAndMatchup(filtered);
+
+        
         res.json(filtered);
     } catch (error) {
         res.status(500).json({ error: error.message });
