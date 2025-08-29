@@ -244,7 +244,7 @@ def get_decklist(url):
         metadata_table = tables[0]
         
         metadata = get_decklist_metadata(metadata_table)
-        decklist = {"Metadata": metadata, "Matchups": [], "Cards": []}
+        decklist = {"Metadata": metadata, "Classic Constructed Matchups": [], "Cards": []}
         
         #Decklist extraction
         for table in tables[1:]:
@@ -320,59 +320,59 @@ def update_results(url, round, Top, decklists):
             text = result.get_text(separator=" ", strip=True)
             print(f"For round {i} result text: {text}")
             if "1" in text:
-                decklists[results_names_1[i]["Name"]]["Metadata"]["Matchups"].append({
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Matchups"].append({
                     "Result": True,
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_1[i]["Name"]]["Metadata"]["Wins"] += 1
-                decklists[results_names_2[i]["Name"]]["Metadata"]["Matchups"].append({
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Wins"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Matchups"].append({
                     "Result": False,
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_2[i]["Name"]]["Metadata"]["Losses"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Losses"] += 1
             elif "2" in text:
-                decklists[results_names_1[i]["Name"]]["Metadata"]["Matchups"].append({
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Matchups"].append({
                     "Result": False,
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_1[i]["Name"]]["Metadata"]["Losses"] += 1
-                decklists[results_names_2[i]["Name"]]["Metadata"]["Matchups"].append({
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Losses"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Matchups"].append({
                     "Result": True,
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_2[i]["Name"]]["Metadata"]["Wins"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Wins"] += 1
             else:
-                decklists[results_names_1[i]["Name"]]["Metadata"]["Matchups"].append({
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Matchups"].append({
                     "Result": None,
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_1[i]["Name"]]["Metadata"]["Draws"] += 1
-                decklists[results_names_2[i]["Name"]]["Metadata"]["Matchups"].append({
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Draws"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Matchups"].append({
                     "Result": None,
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_2[i]["Name"]]["Metadata"]["Draws"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Draws"] += 1
             
             if Top:
                 decklists[results_names_1[i]["Name"]]["Metadata"]["Top"] = True
                 decklists[results_names_2[i]["Name"]]["Metadata"]["Top"] = True
-                decklists[results_names_1[i]["Name"]]["Metadata"]["Top Rounds"] += 1
-                decklists[results_names_2[i]["Name"]]["Metadata"]["Top Rounds"] += 1
+                decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Top Rounds"] += 1
+                decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Top Rounds"] += 1
                 
-            decklists[results_names_1[i]["Name"]]["Metadata"]["Played Rounds"] += 1
-            decklists[results_names_2[i]["Name"]]["Metadata"]["Played Rounds"] += 1
+            decklists[results_names_1[i]["Name"]]["Metadata"]["Classic Constructed Played Rounds"] += 1
+            decklists[results_names_2[i]["Name"]]["Metadata"]["Classic Constructed Played Rounds"] += 1
         
         return decklists
     except requests.exceptions.RequestException as e:
@@ -391,6 +391,7 @@ def update_results_with_name(url, round, Top, decklists):
         soup = BeautifulSoup(html_content, 'html.parser')
         
         names = soup.find_all("div", class_="tournament-coverage__player-name-and-flag")
+        all_text = soup.find_all("div", class_="tournament-coverage__player-text")
         results_names_1 = []
         results_names_2 = []
 
@@ -401,41 +402,63 @@ def update_results_with_name(url, round, Top, decklists):
 
         for i, name_div in enumerate(names):
             name = name_div.get_text(separator=" ", strip=True)
-            matching_decklists = [dl for dl in decklists.values() if dl["Metadata"]["Player Name"] == name]
+            matching_decklists = [(key, dl) for key, dl in decklists.items() if dl["Metadata"]["Player Name"].lower() == name.lower()]
+            
+            if len(matching_decklists) > 1:
+                print("Multiple matching decklists found for Player: " + name + ", trying to match by Hero")
+                hero_div = all_text[i].find("div", class_="tournament-coverage__player-hero-and-deck")
+                hero = hero_div.get_text(separator=" ", strip=True) if hero_div else "N/A"
+                matching_decklists = [(key, dl) for key, dl in matching_decklists if dl["Metadata"]["Hero"].lower() == hero.lower()]
+                if len(matching_decklists) > 1:
+                    print("Still multiple matching decklists found for Player: " + name + " with Hero: " + hero + ", ingoring this national")
+                    return None
+                elif len(matching_decklists) == 0:
+                    print("No matching decklist found for Player: " + name + " with Hero: " + hero + ", ignoring this national")
+                    return None
+            
             try:
-                decklist = matching_decklists[0]
-                id_decklist = get_decklist_name(decklist)
-                print(f"Matched decklist for player: {name} with ID: {id_decklist}")
+                id_decklist = matching_decklists[0][0]
+                decklist = matching_decklists[0][1]
             except:
-                print("No matching decklist found for name: " + name)
-                decklist = {
-                    "Metadata": {
-                        "Player Name": name,
-                        "Id": name,
-                        "Date": "N/A",
-                        "Event": "N/A",
-                        "Hero": "N/A",
-                        "Rank": 0,
-                        "Total Swiss Wins": 0,
-                        "Classic Constructed Tournament Rounds": 0,
-                        "Classic Constructed Wins": 0,
-                        "Classic Constructed Losses": 0,
-                        "Classic Constructed Double Losses": 0,
-                        "Classic Constructed Draws": 0,
-                        "Classic Constructed Played Rounds": 0,
-                        "Top": False,
-                        "Classic Constructed Top Rounds": 0
-                    },
-                    "Matchups": [],
-                    "Cards": []
-                }
-                id_decklist = get_decklist_name(decklist)
-                decklists[id_decklist] = decklist
+                print("No matching decklist found for Player: " + name)
+                if name is not None:
+                    dummy_decklist = {
+                        "Metadata": {
+                            "Player Name": name,
+                            "Hero": "N/A",
+                            "Event": "N/A",
+                            "Date": "N/A",
+                            "Id": "",
+                            "Rank": 0,
+                            "Total Swiss Wins": 0,
+                            "Classic Constructed Tournament Rounds": 0,
+                            "Classic Constructed Wins": 0,
+                            "Classic Constructed Losses": 0,
+                            "Classic Constructed Double Losses": 0,
+                            "Classic Constructed Draws": 0,
+                            "Classic Constructed Played Rounds": 0,
+                            "Top": False,
+                            "Classic Constructed Top Rounds": 0,
+                            "Classic Constructed Matchups": []
+                        },
+                        "Classic Constructed Matchups": [],
+                        "Cards": []
+                    }
+                    id_decklist = name
+                    decklists[id_decklist] = dummy_decklist
+                    print(f"Created dummy decklist for Player: {name}")
+                else:
+                    print("Player name is None, skipping dummy decklist creation.")
+                    continue
 
             if i % 2 == 0:
                 results_names_1.append({"Id": id_decklist, "Hero": decklist["Metadata"]["Hero"]})
             else:
                 results_names_2.append({"Id": id_decklist, "Hero": decklist["Metadata"]["Hero"]})
+        
+        if len(results_names_1) == len(results_names_2) + 1:
+            print("Odd number of players, adding dummy player to results_names_2")
+            results_names_2.append({"Id": "By", "Hero": "N/A"})
 
             #print(f"Player {name} with Hero {decklist['metadata']['Hero']} processed. Index {i}")
 
@@ -445,74 +468,82 @@ def update_results_with_name(url, round, Top, decklists):
             text = result.get_text(separator=" ", strip=True)
             print(f"For table {i} result text: {text}")
             if "1" in text:
-                decklists[results_names_1[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "W",
+                    "Opponent": results_names_2[i]["Id"],
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_1[i]["Id"]]["Metadata"]["Wins"] += 1
-                decklists[results_names_2[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Metadata"]["Classic Constructed Wins"] += 1
+                decklists[results_names_2[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "L",
+                    "Opponent": results_names_1[i]["Id"],
                     "Opponent Hero": results_names_1[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_2[i]["Id"]]["Metadata"]["Losses"] += 1
+                decklists[results_names_2[i]["Id"]]["Metadata"]["Classic Constructed Losses"] += 1
             elif "2" in text:
-                decklists[results_names_1[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "L",
+                    "Opponent": results_names_2[i]["Id"],
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_1[i]["Id"]]["Metadata"]["Losses"] += 1
-                decklists[results_names_2[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Metadata"]["Classic Constructed Losses"] += 1
+                decklists[results_names_2[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "W",
+                    "Opponent": results_names_1[i]["Id"],
                     "Opponent Hero": results_names_1[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_2[i]["Id"]]["Metadata"]["Wins"] += 1
+                decklists[results_names_2[i]["Id"]]["Metadata"]["Classic Constructed Wins"] += 1
             elif "Draw" in text:
-                decklists[results_names_1[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "D",
+                    "Opponent": results_names_2[i]["Id"],
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_1[i]["Id"]]["Metadata"]["Draws"] += 1
-                decklists[results_names_2[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Metadata"]["Classic Constructed Draws"] += 1
+                decklists[results_names_2[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "D",
+                    "Opponent": results_names_1[i]["Id"],
                     "Opponent Hero": results_names_1[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_2[i]["Id"]]["Metadata"]["Draws"] += 1
+                decklists[results_names_2[i]["Id"]]["Metadata"]["Classic Constructed Draws"] += 1
             else:
-                decklists[results_names_1[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "DL",
+                    "Opponent": results_names_2[i]["Id"],
                     "Opponent Hero": results_names_2[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_1[i]["Id"]]["Metadata"]["Double Losses"] += 1
-                decklists[results_names_2[i]["Id"]]["Matchups"].append({
+                decklists[results_names_1[i]["Id"]]["Metadata"]["Classic Constructed Double Losses"] += 1
+                decklists[results_names_2[i]["Id"]]["Classic Constructed Matchups"].append({
                     "Result": "DL",
+                    "Opponent": results_names_1[i]["Id"],
                     "Opponent Hero": results_names_1[i]["Hero"],
                     "Round": round,
                     "Top": Top
                 })
-                decklists[results_names_2[i]["Id"]]["Metadata"]["Double Losses"] += 1
+                decklists[results_names_2[i]["Id"]]["Metadata"]["Classic Constructed Double Losses"] += 1
             
             if Top:
                 decklists[results_names_1[i]["Id"]]["Metadata"]["Top"] = True
                 decklists[results_names_2[i]["Id"]]["Metadata"]["Top"] = True
-                decklists[results_names_1[i]["Id"]]["Metadata"]["Top Rounds"] += 1
-                decklists[results_names_2[i]["Id"]]["Metadata"]["Top Rounds"] += 1
+                decklists[results_names_1[i]["Id"]]["Metadata"]["Classic Constructed Top Rounds"] += 1
+                decklists[results_names_2[i]["Id"]]["Metadata"]["Classic Constructed Top Rounds"] += 1
                 
-            decklists[results_names_1[i]["Id"]]["Metadata"]["Played Rounds"] += 1
-            decklists[results_names_2[i]["Id"]]["Metadata"]["Played Rounds"] += 1
+            decklists[results_names_1[i]["Id"]]["Metadata"]["Classic Constructed Played Rounds"] += 1
+            decklists[results_names_2[i]["Id"]]["Metadata"]["Classic Constructed Played Rounds"] += 1
         
         return decklists
     except requests.exceptions.RequestException as e:
@@ -531,7 +562,7 @@ def update_decklists_results(pairings, total_rounds, decklists, names = True):
 
 # Example usage
 if __name__ == "__main__":
-    nationals_flag = False
+    nationals_flag = True
     high_tier_flag = False
     nationals_standings_flag = True
 
@@ -549,7 +580,7 @@ if __name__ == "__main__":
         for national in nationals:
             decklists = {}
             name = national.split("/")[-2]
-            if os.path.exists(f"decklists/nationals_decklists_{name}.json"):
+            if os.path.exists(f"decklists_adjusted/nationals_decklists_{name}.json"):
                 print(f"Already done {name} national!")
                 continue
             else:
@@ -562,14 +593,14 @@ if __name__ == "__main__":
                 print("No decklists found for national: " + name)
                 continue
             json_object = json.dumps(decklists, indent=4)
-            with open(f"decklists/nationals_decklists_{name}.json", "w") as outfile:
+            with open(f"decklists_adjusted/nationals_decklists_{name}.json", "w") as outfile:
                 outfile.write(json_object)
     
         #UPDATE RESULTS
         for national in nationals:
             name = national.split("/")[-2]
-            decklist_file = f"decklists_good/nationals_decklists_{name}.json"
-            results_file = f"decklists_with_results_no_standings/nationals_decklists_results_{name}.json"
+            decklist_file = f"decklists_adjusted/nationals_decklists_{name}.json"
+            results_file = f"decklists_adjusted_with_results_no_standings/nationals_decklists_results_{name}.json"
 
             if not os.path.exists(decklist_file):
                 print(f"No decklists file found for {name} national, skipping results update!")
@@ -594,7 +625,7 @@ if __name__ == "__main__":
                     print("No decklists found for national: " + name)
                     continue
                 json_object = json.dumps(decklists, indent=4)
-                with open(f"decklists_with_results_no_standings/nationals_decklists_results_{name}.json", "w") as outfile:
+                with open(f"decklists_adjusted_with_results_no_standings/nationals_decklists_results_{name}.json", "w") as outfile:
                     outfile.write(json_object)        
     
     #HIGH TIER TOURNAMENTS
@@ -669,8 +700,8 @@ if __name__ == "__main__":
         
         for national in nationals:
             name = national.split("/")[-2]
-            decklist_file = f"decklists_with_results_no_standings/nationals_decklists_results_{name}.json"
-            standings_file = f"decklists_with_results_and_standings/nationals_decklists_results_and_standings_{name}.json"
+            decklist_file = f"decklists_adjusted_with_results_no_standings/nationals_decklists_results_{name}.json"
+            standings_file = f"decklists_adjusted_with_results_and_standings/nationals_decklists_results_and_standings_{name}.json"
 
             if not os.path.exists(decklist_file):
                 print(f"No decklists file found for {name} national, skipping standings update!")
@@ -718,8 +749,10 @@ if __name__ == "__main__":
                             rank = 0
                     player_info = cells[1].get_text(separator=" ", strip=True)
                     if len(cells) < 4:
+                        hero = None
                         wins = cells[2].get_text(separator=" ", strip=True)
                     else:
+                        hero = cells[2].get_text(separator=" ", strip=True)
                         wins = cells[3].get_text(separator=" ", strip=True)
                         
                     print(f"Player: {player_info}, Rank: {rank}, Wins: {wins}")
@@ -728,9 +761,25 @@ if __name__ == "__main__":
                     for key, dl in decklists.items():
                         if dl["Metadata"]["Player Name"].strip().lower() == player_info.strip().lower():
                             if decklist_id != None:
-                                print(f"Warning: Multiple decklists matched for player: {player_info}. Previous ID: {decklist_id}, New ID: {key}. Using the first match.")
-                                exit()
-                            decklist_id = key
+                                print(f"Warning: Multiple decklists matched for player: {player_info}. Previous ID: {decklist_id}, New ID: {key}. Mathing by hero")
+                                if hero:
+                                    if dl["Metadata"]["Hero"].strip().lower() == hero.strip().lower():
+                                        decklist_id = key
+                                        print(f"Matched decklist for player: {player_info} with ID: {decklist_id} by hero")
+                                else:
+                                    print("Try by matching classic constructed wins")
+                                    if int(dl["Metadata"]["Classic Constructed Wins"]) > int(wins):
+                                        print(f"More Classic Constructed Wins ({dl['Metadata']['Classic Constructed Wins']}) than Swiss Wins ({wins}), keeping previous ID: {decklist_id}")
+                                    else:
+                                        print(f"No hero information available to disambiguate for player: {player_info}, keeping previous ID: {decklist_id}")
+                                    
+                                    
+                            if hero and dl["Metadata"]["Hero"].strip().lower() == hero.strip().lower():                                  
+                                decklist_id = key
+                            elif int(dl["Metadata"]["Classic Constructed Wins"]) > int(wins):
+                                print(f"More Classic Constructed Wins ({dl['Metadata']['Classic Constructed Wins']}) than Swiss Wins ({wins}), ignoring this decklist for player: {player_info}")
+                            else:
+                                decklist_id = key
                             print(f"Matched decklist for player: {player_info} with ID: {decklist_id}")
                             #break
                     if decklist_id:
@@ -788,10 +837,5 @@ if __name__ == "__main__":
                 json_object = json.dumps(decklists, indent=4)
                 with open(standings_file, "w") as outfile:
                     outfile.write(json_object)
-                    
-                json_object = json.dumps(standings, indent=4)
-                with open("pippo.json", "w") as outfile:
-                    outfile.write(json_object)
-                exit()
                 
                 

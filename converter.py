@@ -50,11 +50,11 @@ def denest_matchups_and_adjust_metadata_names(decklists_dict):
     return decklists_dict
 
 if __name__ == "__main__":
-    decklist_folder = "decklists_with_results"
+    decklist_folder = "decklists_adjusted"
     for filename in os.listdir(decklist_folder):
         if filename.endswith(".json"):
             file_path = os.path.join(decklist_folder, filename)
             decklists_dict = denest_matchups_and_adjust_metadata_names(file_path)
-            output_path = os.path.join("decklists_with_results_no_standings", f"{os.path.splitext(filename)[0]}.json")
+            output_path = os.path.join("decklists_adjusted copy", f"{os.path.splitext(filename)[0]}.json")
             with open(output_path, "w") as outfile:
                 json.dump(decklists_dict, outfile, indent=2)
