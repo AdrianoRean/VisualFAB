@@ -1,0 +1,22 @@
+{
+  "name": "visualfab",
+  "version": "1.0.0",
+  "description": "software to analyze decklist in FAB",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "server": "node server.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Adriano Izzi",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "d3": "^7.9.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "standard": "^17.1.2"
+  }
+}
