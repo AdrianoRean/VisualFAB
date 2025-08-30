@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
+import { group } from 'console';
+import e from 'express';
+import { match } from 'assert';
 
 const app = express();
 const PORT = 3000;
@@ -106,43 +109,12 @@ function extractMetadataAndMatchup(decklists) {
     console.log('Extracting metadata and matchups');
     return decklists.map(decklist => ({
         Metadata: decklist.Metadata,
-        Matchup: decklist["Classic Constructed Matchups"]
+        Matchups: decklist["Classic Constructed Matchups"]
     }));
 }
 
-// Serve default index.html
-app.get('/', (req, res) => {
-    console.log('Serving index.html');
-    res.sendFile('index.html', { root: '.' });
-});
-
-// API endpoint
-app.post('/api/decklists', async (req, res) => {
+function timeseriesWinrates(grouped_decklists) {
     try {
-        console.log('POST /api/decklists - Request received');
-        const criteria = req.body;
-        console.log('Filter criteria:', criteria);
-        let filtered = filterDecklists(decklists, criteria);
-        filtered = extractMetadataAndMatchup(filtered);
-        res.json(filtered);
-        console.log('Response sent with filtered decklists');
-    } catch (error) {
-        console.error('Error in /api/decklists:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/decklists/winrate', async (req, res) => {
-    try {
-        console.log('POST /api/decklists/winrate - Request received');
-        const filterCriteria = req.body["filter criteria"];
-        const groupCriteria = req.body["group criteria"];
-        console.log('Filter criteria:', filterCriteria);
-        console.log('Group criteria:', groupCriteria);
-        let filtered = filterDecklists(decklists, filterCriteria);
-        filtered = extractMetadataAndMatchup(filtered);
-        let grouped_decklists = groupDecklists(filtered, groupCriteria);
-
         let final_groups = {};
         let min_date = null;
         let max_date = null;
@@ -176,13 +148,147 @@ app.post('/api/decklists/winrate', async (req, res) => {
           max_date
         };
         console.log('Final groups:', final_groups);
-        res.json(final_groups);
-        console.log('Response sent with winrate data');
+        return final_groups;
     } catch (error) {
         console.error('Error in /api/decklists/winrate:', error.message);
+        //res.status(500).json({ error: error.message });
+    }
+};
+
+function parallelMatchups(grouped_decklists, matchups) {
+    try{
+        // Implementation for parallelMatchups
+        //console.log('Grouped decklists:', grouped_decklists);
+        console.log('Matchups:', matchups);
+        // Here you would implement the logic for parallel matchups
+        /*
+        Object.entries(matchups).forEach(([matchup_name, matchup_data]) => {
+            console.log(`Processing matchup "${matchup_name}" with data:`, matchup_data);
+            // Implement the logic for each matchup
+            if (matchup_data.type === 'COMPOUND') {
+                // Handle compound matchups
+                console.log(`Handling compound matchup "${matchup_name}"`);
+
+                // GET ID OF EACH DECKLIST CORRESPONDING TO FILTERS IN ORDER TO USE IT LATER TO CHECK IF DECKS HAVE BEATEN THOSE MATCHUPS
+                // IS IT POSSIBLE?
+            } else if (matchup_data.type === 'SIMPLE') {
+                // Handle simple matchups
+                console.log(`Handling simple matchup "${matchup_name}"`);
+                // Implement the logic for simple matchups
+
+            }
+        });
+        */
+       let grouped_matchup_winrates = {};
+       Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
+           console.log(`Processing group "${group_name}"`);
+           // Implement the logic for each group
+           const matchupStats = {};
+           let monikers = {};
+
+           for (const decklist of decklists) {
+               const played_matchups = decklist.Matchups;
+               for (const round of played_matchups) {
+                   const hero = round["Opponent Hero"];
+                   if (!matchups.some(moniker => hero.includes(moniker))) {
+                       continue;
+                   } else if (!matchupStats[hero]) {
+                       monikers[hero] = matchups.find(moniker => hero.includes(moniker));
+                       matchupStats[hero] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
+                   }
+                   matchupStats[hero].played += 1;
+                   if (round["Result"] === "W") {
+                       matchupStats[hero].wins += 1;
+                   } else if (round["Result"] === "L") {
+                       matchupStats[hero].losses += 1;
+                   } else if (round["Result"] === "D") {
+                       matchupStats[hero].draws += 1;
+                   } else {
+                       matchupStats[hero].double_losses += 1;
+                   }
+               }
+           }
+
+           console.log(`Processed ${decklists.length} decklists for group "${group_name}"`);
+
+           const matchupWinrates = [];
+           for (const [hero, stats] of Object.entries(matchupStats)) {
+               const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
+               matchupWinrates.push({"hero": monikers[hero], winrate});
+               console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
+           }
+
+           grouped_matchup_winrates[group_name] = matchupWinrates;
+       });
+        console.log('Finished calculating matchup winrates for all groups');
+        grouped_matchup_winrates["Dimensions"] = matchups;
+        return grouped_matchup_winrates;
+    } catch (error) {
+        console.error('Error in /api/decklists/winrate:', error.message);
+        //res.status(500).json({ error: error.message });
+    }
+}
+
+// Serve default index.html
+app.get('/', (req, res) => {
+    console.log('Serving index.html');
+    res.sendFile('index.html', { root: '.' });
+});
+
+// API endpoint
+app.post('/api/decklists', async (req, res) => {
+    try {
+        console.log('POST /api/decklists - Request received');
+        const criteria = req.body;
+        console.log('Filter criteria:', criteria);
+        let filtered = filterDecklists(decklists, criteria);
+        filtered = extractMetadataAndMatchup(filtered);
+        res.json(filtered);
+        console.log('Response sent with filtered decklists');
+    } catch (error) {
+        console.error('Error in /api/decklists:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
+
+app.post('/api/decklists/calculate', async (req, res) => {
+    try {
+        const filterCriteria = req.body.filters;
+        const groupCriteria = req.body.groups;
+        const graph_requests = req.body.graphs;
+        console.log('Filter criteria:', filterCriteria);
+        console.log('Group criteria:', groupCriteria);
+        console.log('Graph requests:', graph_requests);
+        let filtered = filterDecklists(decklists, filterCriteria);
+        filtered = extractMetadataAndMatchup(filtered);
+        let grouped_decklists = groupDecklists(filtered, groupCriteria);
+        let json_response = {};
+        Object.entries(graph_requests).forEach(([graph_name, request_data]) => {
+            console.log(`Processing ${graph_name} with data:`, request_data);
+            // Here you would call the appropriate function to handle each graph type
+            switch (request_data.type) {
+                case 'timeseries':
+                    // Call the function to handle timeseries graph
+                    let timeseries_data = timeseriesWinrates(grouped_decklists);
+                    json_response[graph_name] = timeseries_data;
+                    break;
+                case 'parallel_coordinates':
+                    // Call the function to handle parallel coordinates graph
+                    let parallel_coordinates_data = parallelMatchups(grouped_decklists, request_data.matchups);
+                    json_response[graph_name] = parallel_coordinates_data;
+                    break;
+                default:
+                    console.warn(`Unknown graph type: ${request_data.type}`);
+            }
+        });
+        console.log('Finished processing graph requests');
+        res.json(json_response);
+    } catch (error) {
+        console.error('Error in /api/decklists/calculate:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
