@@ -1,66 +1,126 @@
 import * as d3 from "d3";
 
 export async function fetchDecklists(criteria) {
-  const response = await fetch('http://localhost:3000/api/decklists/winrate', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(criteria)
-  });
-  return response.json();
+  console.log("Fetching decklists with criteria:", criteria);
+  try {
+    const response = await fetch('http://localhost:3000/api/decklists/winrate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(criteria)
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch decklists. Status:", response.status, response.statusText);
+      return [];
+    }
+
+    const data = await response.json();
+    console.log("Fetched decklists successfully:", data);
+    return data;
+  } catch (error) {
+    console.error("Error fetching decklists:", error);
+    return [];
+  }
 }
 
 export function drawViz(data) {
-  d3.select("#viz").html(""); // Clear previous viz
-  const width = 600, height = 300;
-  const svg = d3.select("#viz").append("svg")
-    .attr("width", width).attr("height", height);
+  console.log("Drawing visualization with data:", data);
 
-  // Example: Bar chart of winrates by player
-  const x = d3.scaleBand()
-    .domain(data.map(d => d.name))
-    .range([40, width-20])
-    .padding(0.1);
+  d3.select("#viz").html(""); // Clear previous viz
+  // set the dimensions and margins of the graph
+  var margin = {top: 10, right: 30, bottom: 30, left: 60},
+      width = 460 - margin.left - margin.right,
+      height = 400 - margin.top - margin.bottom;
+
+  // append the svg object to the body of the page
+  var svg = d3.select("#viz")
+    .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
+  
+  const metadata = data.Metadata;
+  delete data.Metadata;
+    
+  const x = d3.scaleTime()
+    .domain([new Date(metadata.min_date), new Date(metadata.max_date)])
+    .range([ 0, width ]);
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x));
 
   const y = d3.scaleLinear()
-    .domain([0, d3.max(data, d => d.winrate) || 1])
-    .range([height-40, 20]);
+    .domain([0, 100])
+    .range([ height, 0 ]);
+    svg.append("g")
+      .call(d3.axisLeft(y));
 
-  svg.selectAll("rect")
-    .data(data)
-    .enter()
-    .append("rect")
-    .attr("x", d => x(d.name))
-    .attr("y", d => y(d.winrate))
-    .attr("width", x.bandwidth())
-    .attr("height", d => y(0) - y(d.winrate))
-    .attr("fill", "steelblue");
+    // color palette
+  var res = Object.keys(data); // list of group names
+  var color = d3.scaleOrdinal()
+    .domain(res)
+    .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
+  
+  var cindra = data['Cindra'];
+  console.log("Cindra data:", cindra);
 
-  svg.append("g")
-    .attr("transform", `translate(0,${height-40})`)
-    .call(d3.axisBottom(x).tickFormat(d => d).tickSizeOuter(0))
-    .selectAll("text")
-    .attr("transform", "rotate(-45)")
-    .style("text-anchor", "end");
+  if (!cindra || cindra.length === 0) {
+    console.warn("No data available for 'Cindra'.");
+    return;
+  }
 
-  svg.append("g")
-    .attr("transform", `translate(40,0)`)
-    .call(d3.axisLeft(y));
+  // Parse date strings into Date objects
+  cindra.forEach(d => {
+    d.date = new Date(d.date);
+  });
+
+  // Add the line
+  svg.append("path")
+    .datum(cindra)
+    .attr("fill", "none")
+    .attr("stroke", "steelblue")
+    .attr("stroke-width", 1.5)
+    .attr("d", d3.line()
+      .x(function(d) { return x(d.date); })
+      .y(function(d) { return y(d.winrate); })
+    );
+
+    console.log("I'm here!");
+
+  console.log("Visualization drawn successfully.");
 }
 
 // Attach event listeners after DOM is loaded
 window.addEventListener('DOMContentLoaded', () => {
+  console.log("DOM fully loaded. Attaching event listeners.");
+
   document.getElementById('criteria-form').onsubmit = async function(e) {
     e.preventDefault();
-    const form = e.target;
-    let groups = form.Group.value.split(',').map(g => ({"name" : g.trim(), "filter": {"Hero" : {"precision": "IS-IN", "value": g.trim()}}}));
-    let criteria = {
+    console.log("Form submitted. Processing criteria...");
+
+    try {
+      const form = e.target;
+      let groups = form.Group.value.split(',').map(g => ({"name" : g.trim(), "filter": {"Hero" : {"precision": "IS-IN", "value": g.trim()}}}));
+      let criteria = {
         "filter criteria": {
           Format: {"precision": "IS", "value": form.Format.value},
           Rank: {"precision": "RANGE", "min": Number(form.RankMin.value), "max": Number(form.RankMax.value)}
         },
         "group criteria": groups.length > 0 ? groups : {}
       };
-    const data = await fetchDecklists(criteria);
-    drawViz(data);
+
+      console.log("Criteria prepared:", criteria);
+
+      const data = await fetchDecklists(criteria);
+      if (data.length === 0) {
+        console.warn("No data returned for the given criteria.");
+      } else {
+        drawViz(data);
+      }
+    } catch (error) {
+      console.error("Error processing form submission:", error);
+    }
   };
 });

@@ -1,11 +1,12 @@
 import json
 import copy
 import os
+from datetime import datetime
 
 decklists_folder = "decklists_adjusted_with_results_and_standings"
 
 if __name__ == "__main__":
-    unified_decklist = []
+    '''unified_decklist = []
 
     # Iterate through all files in the decklists_folder
     for filename in os.listdir(decklists_folder):
@@ -39,4 +40,23 @@ if __name__ == "__main__":
 
     # Save the unified decklist dictionary to a JSON file
     with open("decklists.json", "w", encoding="utf-8") as output_file:
-        json.dump(unified_decklist, output_file, indent=4)
+        json.dump(unified_decklist, output_file, indent=4)'''
+        
+    # Load the decklists from the JSON file
+    with open("src/decklists.json", "r", encoding="utf-8") as file:
+        decklists = json.load(file)
+
+    # Convert the "Date" field in "Metadata" to datetime format
+    for decklist in decklists:
+        metadata = decklist.get("Metadata", {})
+        date_str = metadata.get("Date", None)
+        if date_str:
+            try:
+                # Assuming the date format is "Mon. DD, YYYY" (e.g., "Jun. 28, 2025")
+                metadata["Date"] = datetime.strptime(date_str, "%b. %d, %Y")
+            except ValueError as e:
+                print(f"Error parsing date '{date_str}': {e}")
+
+    # Save the updated decklists back to the JSON file
+    with open("src/decklists_date.json", "w", encoding="utf-8") as file:
+        json.dump(decklists, file, indent=4, default=str)
