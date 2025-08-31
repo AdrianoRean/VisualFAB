@@ -33978,7 +33978,7 @@ function timeseriesGraph(name_of_element, data) {
   console.log("Visualization drawn successfully.");
 }
 
-function parallelCoordinatesGraph(name_of_element, data){
+function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   console.log("Initializing parallel coordinates graph...");
 
   console.log("Extracting dimensions...");
@@ -34109,8 +34109,73 @@ function parallelCoordinatesGraph(name_of_element, data){
       .text(function(d) { return d; })
       .style("fill", "black");
 
+    // Add movable point for filters
+    dimensions.forEach(dim => {
+      this_graph_filters[dim] = { min: 0, max: 100 }; // Initialize filter for this dimension
+      // Initial positions: bottom (min) and top (max)
+      const yMin = y.range()[0];
+      const yMax = y.range()[1];
+
+      // Initial values: min and max of the axis domain
+      const minValue = y.invert(yMin);
+      const maxValue = y.invert(yMax);
+
+      // Group for the axis
+      const axisGroup = svg.append("g").attr("class", `filter-squares-${dim}`);
+
+      // Top square (max)
+      axisGroup.append("rect")
+        .attr("class", `filter-square filter-square-top axis-${dim}`)
+        .attr("x", x(dim) - 4)
+        .attr("y", y(maxValue) - 4)
+        .attr("width", 8)
+        .attr("height", 8)
+        .attr("fill", "#ff7f0e")
+        .call(
+          d3__WEBPACK_IMPORTED_MODULE_0__.drag()
+            .on("drag", function(event) {
+              let newY = Math.max(y.range()[1], Math.min(y.range()[0], event.y));
+              // Prevent crossing the bottom square
+              const bottomY = +axisGroup.select(".filter-square-bottom").attr("y");
+              newY = Math.min(newY, bottomY - 10);
+              d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("y", newY);
+              const newMax = y.invert(newY);
+              this_graph_filters[dim].max = newMax;
+            })
+            .on("end", function() {
+              console.log("This graph's filters:", this_graph_filters);
+            })
+        );
+
+      // Bottom square (min)
+      axisGroup.append("rect")
+        .attr("class", `filter-square filter-square-bottom axis-${dim}`)
+        .attr("x", x(dim) - 4)
+        .attr("y", y(minValue) - 4)
+        .attr("width", 8)
+        .attr("height", 8)
+        .attr("fill", "#1f77b4")
+        .call(
+          d3__WEBPACK_IMPORTED_MODULE_0__.drag()
+            .on("drag", function(event) {
+              let newY = Math.max(y.range()[1], Math.min(y.range()[0], event.y));
+              // Prevent crossing the top square
+              const topY = +axisGroup.select(".filter-square-top").attr("y");
+              newY = Math.max(newY, topY + 10);
+              d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("y", newY);
+              const newMin = y.invert(newY);
+              this_graph_filters[dim].min = newMin;
+            })
+            .on("end", function() {
+              console.log("This graph's filters:", this_graph_filters);
+            })
+        );
+      });
+
   console.log("Parallel coordinates graph drawn successfully.");
 }
+
+const graphs_filters = {};
 
 // Attach event listeners after DOM is loaded
 window.addEventListener('DOMContentLoaded', () => {
@@ -34156,8 +34221,11 @@ window.addEventListener('DOMContentLoaded', () => {
         setLegend(group_names);
         // Draw the graphs
         console.log("Drawing graphs...");
+        d3__WEBPACK_IMPORTED_MODULE_0__.select("#timeseries_viz").html(""); // Clear previous timeseries visualization if present
         timeseriesGraph("#timeseries_viz", data["timeseries_winrates"]);
-        parallelCoordinatesGraph("#parallel_coordinates_viz", data["parallel_coordinates_matchups"]);
+        d3__WEBPACK_IMPORTED_MODULE_0__.select("#parallel_coordinates_viz").html(""); // Clear previous parallel coordinates visualization if present
+        graphs_filters["parallel_coordinates_matchups"] = {};
+        parallelCoordinatesGraph("#parallel_coordinates_viz", data["parallel_coordinates_matchups"], graphs_filters["parallel_coordinates_matchups"]);
       }
     } catch (error) {
       console.error("Error processing form submission:", error);

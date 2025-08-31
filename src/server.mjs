@@ -1,9 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
-import { group } from 'console';
-import e from 'express';
-import { match } from 'assert';
 
 const app = express();
 const PORT = 3000;
@@ -26,6 +23,24 @@ function filterDecklists(decklists, criteria) {
                 return decklist.Metadata[key] >= value.min && decklist.Metadata[key] <= value.max;
             } else if (value.precision === 'IS-IN') {
                 return decklist.Metadata[key].includes(value.value);
+            } else if (value.precision === 'COMPOUND') {
+                if (key === 'Matchups Winrate') {
+                    let flag = true;
+                    Object.entries(value.value).forEach(([matchup, values]) => {
+                        let wins = 0;
+                        Object.entries(decklist["Classic Constructed Matchups"]).forEach(([_, round]) => {
+                            if (round["Opponent Hero"] === matchup) {
+                                wins += 1;
+                            }
+                        });
+                        let winrate = wins / decklist.Metadata["Classic Constructed Played Rounds"] * 100;
+                        if ((winrate >= values.min && winrate <= values.max) === false) {
+                            flag = false;
+                        }
+                    });
+                    
+                    return flag;
+                }
             } else {
                 return decklist.Metadata[key] === value.value;
             }
