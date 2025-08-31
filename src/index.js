@@ -316,6 +316,7 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
               this_graph_filters[dim].max = newMax;
             })
             .on("end", function() {
+              // WE ARE WORKING HERRRRRRRRRRRRRRRRRRRRRRRRRRRRRE
               Object.entries(data).forEach(([group, group_data]) => {
                 let group_filter = all_criterias["groups"][group];
                 if (!group_filter["Matchups Winrate"]) {
