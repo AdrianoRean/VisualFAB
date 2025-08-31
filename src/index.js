@@ -38,6 +38,30 @@ const tooltip = d3.select("body")
   var color;
   var group_names;
 
+export function setLegend(group_names){
+  // Remove existing legend if any
+  d3.select("#legend").remove();
+
+  // Create a new legend
+  const legend = d3.select("body").append("div")
+    .attr("id", "legend")
+    .style("position", "absolute")
+    .style("top", "10px")
+    .style("right", "10px")
+    .style("background", "#fff")
+    .style("border", "1px solid #999")
+    .style("padding", "10px")
+    .style("box-shadow", "0px 4px 6px rgba(0, 0, 0, 0.1)");
+
+  // Add legend items
+  group_names.forEach(name => {
+    legend.append("div")
+      .attr("class", "legend-item")
+      .style("color", color(name))
+      .text(name);
+  });
+}
+
 export function timeseriesGraph(name_of_element, data) {
   
   console.log("Drawing visualization with data:", data);
@@ -108,7 +132,7 @@ export function timeseriesGraph(name_of_element, data) {
           d3.select(this).attr("fill", "red");
           tooltip
             .style("display", "block")
-            .html(`Date: ${d.date.toLocaleDateString()}<br>Winrate: ${d.winrate.toFixed(2)}%`)
+            .html(`Group: ${group}<br>Date: ${d.date.toLocaleDateString()}<br>Winrate: ${d.winrate.toFixed(2)}%`)
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
         })
@@ -130,9 +154,15 @@ export function timeseriesGraph(name_of_element, data) {
 export function parallelCoordinatesGraph(name_of_element, data){
   console.log("Initializing parallel coordinates graph...");
 
+  console.log("Extracting dimensions...");
+  // Extract the list of dimensions we want to keep in the plot. Here I keep all except the column called Species
+  const dimensions = data.Dimensions;
+  delete data.Dimensions;
+  console.log("Dimensions:", dimensions);
+
   // set the dimensions and margins of the graph
-  var margin = {top: 30, right: 10, bottom: 10, left: 0},
-    width = 500 - margin.left - margin.right,
+  var margin = {top: 30, right: 0, bottom: 10, left: 0},
+    width = 150 * dimensions.length - margin.left - margin.right,
     height = 400 - margin.top - margin.bottom;
 
   console.log("Setting up SVG canvas...");
@@ -145,11 +175,7 @@ export function parallelCoordinatesGraph(name_of_element, data){
     .attr("transform",
           "translate(" + margin.left + "," + margin.top + ")");
 
-  console.log("Extracting dimensions...");
-  // Extract the list of dimensions we want to keep in the plot. Here I keep all except the column called Species
-  const dimensions = data.Dimensions;
-  delete data.Dimensions;
-  console.log("Dimensions:", dimensions);
+  console.log("data:", data);
 
   console.log("Building scales for each dimension...");
   
@@ -157,36 +183,47 @@ export function parallelCoordinatesGraph(name_of_element, data){
   // Build the X scale -> it finds the best position for each Y axis
   var x = d3.scalePoint()
     .range([0, width])
-    .padding(1)
+    .padding(0.5)
     .domain(dimensions);
 
   console.log("Setting up Y scales...");
   // For each dimension, I build a linear scale. I store all in a y object
-  var y = {};
-  for (let i in dimensions) {
-    const name = dimensions[i];
-    y[name] = d3.scaleLinear()
+  var y = d3.scaleLinear()
       .domain([0, 100])
       .range([height, 0]);
-  }
-  console.log("Y scales:", y);
 
-  for (const [name, scale] of Object.entries(y)) {
+  console.log("Y scale:", y);
+
+  /*
+  for (const name of dimensions) {
     svg.append("g")
       .attr("class", `y-axis y-axis-${name}`)
       .attr("transform", `translate(${x(name)}, 0)`)
-      .call(d3.axisLeft(scale));
+      .call(d3.axisLeft(y));
   }
+      */
 
-  console.log("Defining path function...");
-  // The path function takes a row of the csv as input, and returns x and y coordinates of the line to draw for this row.
-  function path(d) {
-      return d3.line()(dimensions.map(function(p) { return [x(p), y[p](d[p])]; }));
-  }
+  // Reorder group_data to match the order of dimensions
+  Object.entries(data).forEach(([group, group_data]) => {
+    console.log(`Reordering data for group: ${group}`);
+    //console.log("Original group data:", group_data);
+    const correct_order = [];
+    dimensions.forEach(d => {
+      const found = group_data.find(g => g.hero === d);
+      if (found) {
+        correct_order.push(found);
+      }
+    });
+    data[group] = correct_order; // Update the original data object
+    //console.log("Reordered group data:", data[group]);
+  });
+
+  //console.log("Reordered data for each group:", data);
 
   console.log("Drawing lines and points for each group...");
   Object.entries(data).forEach(([group, group_data]) => {
     console.log(`Processing group: ${group}`);
+    
     // Draw the lines
     svg.append("path")
       .attr("id", `parallel-graph-line-${group}`)
@@ -196,7 +233,7 @@ export function parallelCoordinatesGraph(name_of_element, data){
       .style("stroke-width", 1.5)
       .attr("d", d3.line()
         .x(function(d) { return x(d.hero); })
-        .y(function(d) { return y[group](d.winrate); })
+        .y(function(d) { return y(d.winrate); })
       );
 
     // Add hoverable points
@@ -206,14 +243,14 @@ export function parallelCoordinatesGraph(name_of_element, data){
       .append("circle")
         .attr("class", `group-${group}`)
         .attr("cx", d => x(d["hero"]))
-        .attr("cy", d => y[group](d["winrate"]))
+        .attr("cy", d => y(d["winrate"]))
         .attr("r", 5)
         .attr("fill", color(group))
         .on("mouseover", function(event, d) {
           d3.select(this).attr("fill", "red");
           tooltip
             .style("display", "block")
-            .html(`Matchup: ${d.hero}<br>Winrate: ${d.winrate.toFixed(2)}%`)
+            .html(`Group: ${group}<br>Matchup: ${d.hero}<br>Winrate: ${d.winrate.toFixed(2)}%`)
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
         })
@@ -237,7 +274,7 @@ export function parallelCoordinatesGraph(name_of_element, data){
     // I translate this element to its right position on the x axis
     .attr("transform", function(d) { return "translate(" + x(d) + ")"; })
     // And I build the axis with the call function
-    .each(function(d) { d3.select(this).call(d3.axisLeft().scale(y[d])); })
+    .each(function(d) { d3.select(this).call(d3.axisLeft().scale(y)); })
     // Add axis title
     .append("text")
       .style("text-anchor", "middle")
@@ -285,11 +322,11 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         
         // color palette
-        group_names = Object.keys(data); // list of group names
+        group_names = form.Group.value.split(',').map(g => g.trim()); // list of group names
         color = d3.scaleOrdinal()
           .domain(group_names)
           .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
-
+        setLegend(group_names);
         // Draw the graphs
         console.log("Drawing graphs...");
         timeseriesGraph("#timeseries_viz", data["timeseries_winrates"]);

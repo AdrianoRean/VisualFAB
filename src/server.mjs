@@ -180,6 +180,7 @@ function parallelMatchups(grouped_decklists, matchups) {
         });
         */
        let grouped_matchup_winrates = {};
+        let heroes = [];
        Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
            console.log(`Processing group "${group_name}"`);
            // Implement the logic for each group
@@ -193,6 +194,9 @@ function parallelMatchups(grouped_decklists, matchups) {
                    if (!matchups.some(moniker => hero.includes(moniker))) {
                        continue;
                    } else if (!matchupStats[hero]) {
+                    if (!heroes.includes(hero)) {
+                       heroes.push(hero);
+                    }
                        monikers[hero] = matchups.find(moniker => hero.includes(moniker));
                        matchupStats[hero] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
                    }
@@ -214,14 +218,13 @@ function parallelMatchups(grouped_decklists, matchups) {
            const matchupWinrates = [];
            for (const [hero, stats] of Object.entries(matchupStats)) {
                const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
-               matchupWinrates.push({"hero": monikers[hero], winrate});
+               matchupWinrates.push({"hero": hero, winrate});
                console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
            }
-
            grouped_matchup_winrates[group_name] = matchupWinrates;
        });
         console.log('Finished calculating matchup winrates for all groups');
-        grouped_matchup_winrates["Dimensions"] = matchups;
+        grouped_matchup_winrates["Dimensions"] = heroes;
         return grouped_matchup_winrates;
     } catch (error) {
         console.error('Error in /api/decklists/winrate:', error.message);
