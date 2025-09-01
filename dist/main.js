@@ -33819,7 +33819,9 @@ var __webpack_exports__ = {};
   \**********************/
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   adjustGroupFilters: () => (/* binding */ adjustGroupFilters),
 /* harmony export */   fetchDecklists: () => (/* binding */ fetchDecklists),
+/* harmony export */   getDataAndUpdateViz: () => (/* binding */ getDataAndUpdateViz),
 /* harmony export */   parallelCoordinatesGraph: () => (/* binding */ parallelCoordinatesGraph),
 /* harmony export */   setLegend: () => (/* binding */ setLegend),
 /* harmony export */   timeseriesGraph: () => (/* binding */ timeseriesGraph)
@@ -33928,7 +33930,7 @@ function timeseriesGraph(name_of_element, data) {
   Object.values(data).forEach(groupData => {
     groupData.forEach(d => {
       d.date = new Date(d.date);
-      d.winrate = parseFloat(d.winrate); // Ensure winrate is a number
+      d.winrate.winrate = parseFloat(d.winrate.winrate); // Ensure winrate is a number
     });
   });
 
@@ -33942,7 +33944,7 @@ function timeseriesGraph(name_of_element, data) {
       .attr("stroke-width", 1.5)
       .attr("d", d3__WEBPACK_IMPORTED_MODULE_0__.line()
         .x(function(d) { return x(d.date); })
-        .y(function(d) { return y(d.winrate); })
+        .y(function(d) { return y(d.winrate.winrate); })
       );
 
     // Add hoverable points
@@ -33952,14 +33954,14 @@ function timeseriesGraph(name_of_element, data) {
       .append("circle")
         .attr("class", `group-${group}`)
         .attr("cx", d => x(d.date))
-        .attr("cy", d => y(d.winrate))
+        .attr("cy", d => y(d.winrate.winrate))
         .attr("r", 5)
         .attr("fill", color(group))
         .on("mouseover", function(event, d) {
           d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("fill", "red");
           tooltip
             .style("display", "block")
-            .html(`Group: ${group}<br>Date: ${d.date.toLocaleDateString()}<br>Winrate: ${d.winrate.toFixed(2)}%`)
+            .html(`Group: ${group}<br>Date: ${d.date.toLocaleDateString()}<br>Played Rounds: ${d.winrate.playedRounds}<br>Winrate: ${d.winrate.winrate.toFixed(2)}%`)
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
         })
@@ -33976,6 +33978,25 @@ function timeseriesGraph(name_of_element, data) {
   )
 
   console.log("Visualization drawn successfully.");
+}
+
+function adjustGroupFilters(data, dim, this_graph_filters){
+  Object.entries(data).forEach(([group, group_data]) => {
+    let group_filter = all_criterias["groups"][group];
+    if (group_filter["filter"]["Matchups Winrate"] === undefined) {
+      group_filter["filter"]["Matchups Winrate"] = {
+      "precision": "COMPOUND",
+      "value": {}
+      };
+    }
+    if (group_filter["filter"]["Matchups Winrate"]["value"][dim] === undefined) {
+      group_filter["filter"]["Matchups Winrate"]["value"][dim] = {
+        min: this_graph_filters[dim].min,
+        max: this_graph_filters[dim].max
+      };
+    }
+    group_filter["filter"]["Matchups Winrate"]["value"][dim] = this_graph_filters[dim];
+  });
 }
 
 function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
@@ -34070,14 +34091,14 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       .append("circle")
         .attr("class", `group-${group}`)
         .attr("cx", d => x(d["hero"]))
-        .attr("cy", d => y(d["winrate"]))
+        .attr("cy", d => y(d.winrate))
         .attr("r", 5)
         .attr("fill", color(group))
         .on("mouseover", function(event, d) {
           d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("fill", "red");
           tooltip
             .style("display", "block")
-            .html(`Group: ${group}<br>Matchup: ${d.hero}<br>Winrate: ${d.winrate.toFixed(2)}%`)
+            .html(`Group: ${group}<br>Matchup: ${d.hero}<br>Played Rounds: ${d.playedRounds}<br>Winrate: ${d.winrate.toFixed(2)}%`)
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
         })
@@ -34110,15 +34131,20 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       .style("fill", "black");
 
     // Add movable point for filters
+    let yMin, yMax;
     dimensions.forEach(dim => {
-      this_graph_filters[dim] = { min: 0, max: 100 }; // Initialize filter for this dimension
-      // Initial positions: bottom (min) and top (max)
-      const yMin = y.range()[0];
-      const yMax = y.range()[1];
+      if (this_graph_filters[dim] === undefined) {
+        this_graph_filters[dim] = { min: 0, max: 100 }; // Initialize filter for this dimension
+        // Initial positions: bottom (min) and top (max)
+        yMin = y.range()[0];
+        yMax = y.range()[1];
 
-      // Initial values: min and max of the axis domain
-      const minValue = y.invert(yMin);
-      const maxValue = y.invert(yMax);
+      } else {
+        // Use existing filter values
+        const { min, max } = this_graph_filters[dim];
+        yMin = y(min);
+        yMax = y(max);
+      }
 
       // Group for the axis
       const axisGroup = svg.append("g").attr("class", `filter-squares-${dim}`);
@@ -34127,7 +34153,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       axisGroup.append("rect")
         .attr("class", `filter-square filter-square-top axis-${dim}`)
         .attr("x", x(dim) - 4)
-        .attr("y", y(maxValue) - 4)
+        .attr("y", yMax)
         .attr("width", 8)
         .attr("height", 8)
         .attr("fill", "#ff7f0e")
@@ -34137,13 +34163,14 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
               let newY = Math.max(y.range()[1], Math.min(y.range()[0], event.y));
               // Prevent crossing the bottom square
               const bottomY = +axisGroup.select(".filter-square-bottom").attr("y");
-              newY = Math.min(newY, bottomY - 10);
+              newY = Math.min(newY, bottomY);
               d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("y", newY);
               const newMax = y.invert(newY);
               this_graph_filters[dim].max = newMax;
             })
             .on("end", function() {
-              console.log("This graph's filters:", this_graph_filters);
+              adjustGroupFilters(data, dim, this_graph_filters);
+              getDataAndUpdateViz();
             })
         );
 
@@ -34151,7 +34178,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       axisGroup.append("rect")
         .attr("class", `filter-square filter-square-bottom axis-${dim}`)
         .attr("x", x(dim) - 4)
-        .attr("y", y(minValue) - 4)
+        .attr("y", yMin)
         .attr("width", 8)
         .attr("height", 8)
         .attr("fill", "#1f77b4")
@@ -34161,13 +34188,14 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
               let newY = Math.max(y.range()[1], Math.min(y.range()[0], event.y));
               // Prevent crossing the top square
               const topY = +axisGroup.select(".filter-square-top").attr("y");
-              newY = Math.max(newY, topY + 10);
+              newY = Math.max(newY, topY);
               d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("y", newY);
               const newMin = y.invert(newY);
               this_graph_filters[dim].min = newMin;
             })
             .on("end", function() {
-              console.log("This graph's filters:", this_graph_filters);
+              adjustGroupFilters(data, dim, this_graph_filters);
+              getDataAndUpdateViz();
             })
         );
       });
@@ -34176,6 +34204,38 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
 }
 
 const graphs_filters = {};
+const all_criterias = {
+  "filters": {},
+  "groups": {},
+  "graphs": {}
+};
+
+async function getDataAndUpdateViz(){
+  try{  
+    const data = await fetchDecklists(all_criterias);
+    if (data.length === 0) {
+      console.warn("No data returned for the given criteria.");
+    } else {
+      
+      // color palette
+      color = d3__WEBPACK_IMPORTED_MODULE_0__.scaleOrdinal()
+        .domain(all_criterias["groups_names"])
+        .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
+      setLegend(all_criterias["groups_names"]);
+      // Draw the graphs
+      console.log("Drawing graphs...");
+      d3__WEBPACK_IMPORTED_MODULE_0__.select("#timeseries_viz").html(""); // Clear previous timeseries visualization if present
+      timeseriesGraph("#timeseries_viz", data["timeseries_winrates"]);
+      d3__WEBPACK_IMPORTED_MODULE_0__.select("#parallel_coordinates_viz").html(""); // Clear previous parallel coordinates visualization if present
+      if (graphs_filters["parallel_coordinates_matchups"] === undefined) {
+        graphs_filters["parallel_coordinates_matchups"] = {};
+      }
+      parallelCoordinatesGraph("#parallel_coordinates_viz", data["parallel_coordinates_matchups"], graphs_filters["parallel_coordinates_matchups"]);
+    }
+  } catch (error) {
+    console.error("Error processing form submission:", error);
+  }
+}
 
 // Attach event listeners after DOM is loaded
 window.addEventListener('DOMContentLoaded', () => {
@@ -34187,14 +34247,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
     try {
       const form = e.target;
-      let groups = form.Group.value.split(',').map(g => ({"name" : g.trim(), "filter": {"Hero" : {"precision": "IS-IN", "value": g.trim()}}}));
+      let groups = form.Group.value.split(',').reduce((acc, g) => {
+        const trimmedGroup = g.trim();
+        acc[trimmedGroup] = {"filter": {"Hero": {"precision": "IS-IN", "value": trimmedGroup}}};
+        return acc;
+      }, {});
+      console.log("Group filters:", groups);
       let matchups = form.Matchups.value.split(',').map(m => m.trim());
       let criteria = {
         "filters": {
           Format: {"precision": "IS", "value": form.Format.value},
           Rank: {"precision": "RANGE", "min": Number(form.RankMin.value), "max": Number(form.RankMax.value)}
         },
-        "groups": groups.length > 0 ? groups : {},
+        "groups": Object.values(groups).length > 0 ? groups : {},
         "graphs": {
           "timeseries_winrates": {
             "type": "timeseries"
@@ -34206,27 +34271,16 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       };
 
-      console.log("Criteria prepared:", criteria);
+      group_names = form.Group.value.split(',').map(g => g.trim()); // list of group names
+      
+      console.log("Criteria prepared:", criteria);  
+      // Store the criteria and filters for future use
+      all_criterias["filters"] = criteria.filters;
+      all_criterias["groups"] = criteria.groups;
+      all_criterias["groups_names"] = group_names;
+      all_criterias["graphs"] = criteria.graphs;
 
-      const data = await fetchDecklists(criteria);
-      if (data.length === 0) {
-        console.warn("No data returned for the given criteria.");
-      } else {
-        
-        // color palette
-        group_names = form.Group.value.split(',').map(g => g.trim()); // list of group names
-        color = d3__WEBPACK_IMPORTED_MODULE_0__.scaleOrdinal()
-          .domain(group_names)
-          .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
-        setLegend(group_names);
-        // Draw the graphs
-        console.log("Drawing graphs...");
-        d3__WEBPACK_IMPORTED_MODULE_0__.select("#timeseries_viz").html(""); // Clear previous timeseries visualization if present
-        timeseriesGraph("#timeseries_viz", data["timeseries_winrates"]);
-        d3__WEBPACK_IMPORTED_MODULE_0__.select("#parallel_coordinates_viz").html(""); // Clear previous parallel coordinates visualization if present
-        graphs_filters["parallel_coordinates_matchups"] = {};
-        parallelCoordinatesGraph("#parallel_coordinates_viz", data["parallel_coordinates_matchups"], graphs_filters["parallel_coordinates_matchups"]);
-      }
+      await getDataAndUpdateViz();
     } catch (error) {
       console.error("Error processing form submission:", error);
     }

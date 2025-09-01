@@ -27,15 +27,27 @@ function filterDecklists(decklists, criteria) {
                 if (key === 'Matchups Winrate') {
                     let flag = true;
                     Object.entries(value.value).forEach(([matchup, values]) => {
+                        let played = 0;
                         let wins = 0;
-                        Object.entries(decklist["Classic Constructed Matchups"]).forEach(([_, round]) => {
-                            if (round["Opponent Hero"] === matchup) {
-                                wins += 1;
+                        decklist.Matchups.forEach(round => {
+                            if (round["Opponent Hero"] === matchup){
+                                played += 1;
+                                if (round["Result"] === "W") {
+                                    wins += 1;
+                                }
                             }
                         });
-                        let winrate = wins / decklist.Metadata["Classic Constructed Played Rounds"] * 100;
-                        if ((winrate >= values.min && winrate <= values.max) === false) {
-                            flag = false;
+                        if (played > 0){
+                            let winrate = wins / played * 100;
+                            //console.log("Winrate for", matchup, "is", winrate);
+                            if ((winrate >= values.min && winrate <= values.max) === false) {
+                                //console.log("Winrate is out of bounds");
+                                flag = false;
+                            } else {
+                                //console.log("Winrate is within bounds");
+                            }
+                        } else {
+                            //console.log("Not played against", matchup);
                         }
                     });
                     
@@ -54,8 +66,11 @@ function groupDecklists(decklists, groupCriteria) {
     console.log('Grouping decklists with group criteria:', groupCriteria);
     const grouped = {};
 
-    for (const group of groupCriteria) {
-        const groupKey = group["name"];
+    for (const [groupKey, group] of Object.entries(groupCriteria)) {
+        console.log("Filtering groups with filters:");
+        Object.entries(group["filter"]).forEach(([key, value]) => {
+            console.log(` - ${key}:`, value);
+        });
         const grouped_decklists = filterDecklists(decklists, group["filter"]);
         grouped[groupKey] = grouped_decklists;
         console.log(`Group "${groupKey}" contains ${grouped_decklists.length} decklists`);
@@ -113,8 +128,11 @@ function calculateWinrates(groupedDecklists) {
         //console.log(`Group "${group}", Decklists:`, decklists.slice(0, 3));
         const totalGames = decklists.reduce((sum, decklist) => sum + decklist.Metadata["Classic Constructed Played Rounds"], 0);
         const totalWins = decklists.reduce((sum, decklist) => sum + decklist.Metadata["Classic Constructed Wins"], 0);
-        winrates[group] = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
-        console.log(`Winrate for group "${group}": ${winrates[group].toFixed(2)}%`);
+        winrates[group] = {
+            winrate: totalGames > 0 ? (totalWins / totalGames) * 100 : 0,
+            playedRounds: totalGames
+        };
+        console.log(`Winrate for group "${group}": ${winrates[group]["winrate"].toFixed(2)}%`);
     }
 
     return winrates;
@@ -233,13 +251,16 @@ function parallelMatchups(grouped_decklists, matchups) {
            const matchupWinrates = [];
            for (const [hero, stats] of Object.entries(matchupStats)) {
                const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
+               const playedRounds = stats.played;
+               matchupWinrates.push({ "hero": hero, winrate, playedRounds });
+               console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
                matchupWinrates.push({"hero": hero, winrate});
                console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
            }
            grouped_matchup_winrates[group_name] = matchupWinrates;
        });
         console.log('Finished calculating matchup winrates for all groups');
-        grouped_matchup_winrates["Dimensions"] = heroes;
+        grouped_matchup_winrates["Dimensions"] = heroes.sort();
         return grouped_matchup_winrates;
     } catch (error) {
         console.error('Error in /api/decklists/winrate:', error.message);
