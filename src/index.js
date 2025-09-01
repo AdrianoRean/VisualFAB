@@ -396,16 +396,100 @@ export function adjustGroupFilters(data, dim, this_graph_filters){
 export function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   console.log("Initializing parallel coordinates graph...");
 
+  // set the dimensions and margins of the graph
+  var margin = {top: 30, right: 0, bottom: 10, left: 0},
+    width = 150 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+  
+  // Set the size of the HTML element
+  d3.select(name_of_element)
+    .style("width", `${width + margin.left + margin.right}px`)
+    .style("height", `${height + margin.top + margin.bottom}px`);
+
+  function createMatchupPopup(form_heroes, all_criterias, name_of_element) {
+    // Add a button to open the pop-up menu
+    const addMatchupBtn = document.createElement('button');
+    addMatchupBtn.textContent = 'Add Matchups';
+    addMatchupBtn.style.margin = '10px';
+    name_of_element.appendChild(addMatchupBtn);
+
+    // Create the pop-up menu
+    const matchupPopup = document.createElement('div');
+    matchupPopup.style.position = 'fixed';
+    matchupPopup.style.top = '50%';
+    matchupPopup.style.left = '50%';
+    matchupPopup.style.transform = 'translate(-50%, -50%)';
+    matchupPopup.style.background = '#fff';
+    matchupPopup.style.border = '1px solid #ccc';
+    matchupPopup.style.padding = '20px';
+    matchupPopup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
+    matchupPopup.style.display = 'none';
+    matchupPopup.style.zIndex = '1000';
+    document.body.appendChild(matchupPopup);
+
+    // Add content to the pop-up menu
+    matchupPopup.innerHTML = `
+      <h3>Add Matchups</h3>
+      <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
+        ${form_heroes.map(hero => `
+          <label>
+            <input type="checkbox" class="matchup-checkbox" value="${hero}">
+            ${hero}
+          </label><br>
+        `).join('')}
+        ${Object.values(all_criterias.group_form_names).map(group => `
+          <label>
+            <input type="checkbox" class="matchup-checkbox" value="${group}">
+            ${group}
+          </label><br>
+        `).join('')}
+      </div>
+      <br>
+      <button id="matchup-popup-submit">Submit</button>
+      <button id="matchup-popup-cancel">Cancel</button>
+    `;
+
+    // Add event listeners for the pop-up menu
+    addMatchupBtn.addEventListener('click', () => {
+      matchupPopup.style.display = 'block';
+    });
+
+    document.getElementById('matchup-popup-cancel').addEventListener('click', () => {
+      matchupPopup.style.display = 'none';
+    });
+
+    document.getElementById('matchup-popup-submit').addEventListener('click', () => {
+      const selectedMatchups = Array.from(matchupPopup.querySelectorAll('.matchup-checkbox:checked'))
+        .map(checkbox => checkbox.value);
+
+      if (selectedMatchups.length > 0) {
+        all_criterias.matchups = selectedMatchups;
+        console.log('Matchups added:', selectedMatchups);
+        getDataAndUpdateViz();
+      }
+
+      matchupPopup.style.display = 'none';
+    });
+  }
+
+  // Call the helper function
+  const element = document.querySelector(name_of_element);
+  createMatchupPopup(form_heroes, all_criterias, element);
+
   console.log("Extracting dimensions...");
   // Extract the list of dimensions we want to keep in the plot. Here I keep all except the column called Species
   const dimensions = data.Dimensions;
   delete data.Dimensions;
   console.log("Dimensions:", dimensions);
 
-  // set the dimensions and margins of the graph
-  var margin = {top: 30, right: 0, bottom: 10, left: 0},
-    width = 150 * dimensions.length - margin.left - margin.right,
-    height = 400 - margin.top - margin.bottom;
+  margin = {top: 30, right: 0, bottom: 10, left: 0},
+  width = 150 - margin.left - margin.right,
+  height = 400 - margin.top - margin.bottom;
+  
+  // Set the size of the HTML element
+  d3.select(name_of_element)
+    .style("width", `${width + margin.left + margin.right}px`)
+    .style("height", `${height + margin.top + margin.bottom}px`);
 
   console.log("Setting up SVG canvas...");
   // append the svg object to the body of the page
