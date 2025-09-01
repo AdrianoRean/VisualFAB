@@ -1,5 +1,238 @@
 import * as d3 from "d3";
 
+let form_heroes, form_formats;
+
+const all_criterias = {
+  "filters": {},
+  "group_form_names": {},
+  "groups": {},
+  "graphs": {},
+  "matchups": {}
+};
+
+export async function getFormData(){
+  try {
+    const response = await fetch('http://localhost:3000/api/formData',{
+      method: 'GET',
+      headers: {'Content-Type': 'application/json'}
+  });
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const formData = await response.json();
+    console.log("Form data fetched successfully:", formData);
+    form_heroes = formData.heroes;
+    form_formats = formData.formats;
+  } catch (error) {
+    console.error("Error fetching form data:", error);
+    form_heroes = [];
+    form_formats = [];
+  }
+  console.log("Available heroes:", form_heroes);
+  console.log("Available formats:", form_formats);
+}
+
+await getFormData();
+
+const formsContainer = document.getElementById('forms-container');
+const addFormBtn = document.getElementById('add-form');
+const submitAllBtn = document.getElementById('submit-all');
+
+// Funzione per creare un nuovo form dinamico
+let group_index = 0;
+
+export function createForm() {
+  group_index++;
+  all_criterias["group_form_names"][group_index - 1] = `Group_${group_index}`;
+  const formDiv = document.createElement('form');
+  formDiv.id = `group-form-${group_index}`;
+  formDiv.style.border = "1px solid black";
+  formDiv.style.margin = "10px";
+  formDiv.classList.add('form-container');
+
+  formDiv.innerHTML = `
+    <fieldset>
+    <legend>Decklist Group_${group_index}
+      <button type="button" class="toggle-form">🔽 Hide</button>
+    </legend>
+    <div class="form-content-container" style="display: flex; gap: 20px;">
+      <div class="form-section">
+        <label>Group Name:</label><br>
+        <input type="text" name="group-name" value="Group_${group_index}" required>
+        <label>
+          <input type="checkbox" name="dynamic-group-name" checked>
+          Dynamic
+        </label>
+        <br><br>
+        <label>Search Heroes:</label><br>
+        <input type="text" class="hero-search" placeholder="Search heroes..." style="width: 250px;"><br><br>
+      </div>
+      
+      <div class="form-section">
+        <label>Heroes:</label><br>
+        <div style="width: 250px; height: 100px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px;">
+        ${form_heroes.map(hero => `
+          <label class="hero-label">
+          <input type="checkbox" name="heroes" value="${hero}">
+          ${hero}
+          </label><br>
+        `).join('')}
+        </div>
+        <br>
+      </div>
+      <div class="form-section">
+        <label>Format:</label><br>
+        ${form_formats.map(format => `
+        <label>
+        <input type="radio" name="format" value="${format}" ${format === 'Classic Constructed' ? 'checked' : ''} required>
+        ${format}
+        </label><br>
+        `).join('')}
+        <br>
+        <label>Date Range:</label><br>
+        <input type="datetime-local" name="start-date" value="2019-01-01T00:00" required> to
+        <br>
+        <input type="datetime-local" name="end-date" value="${new Date().toISOString().slice(0, 16)}" required>
+        <br><br>
+        <button type="button" class="remove-form">❌ Remove Decklist Group</button>
+      </div>
+    </div>
+    </fieldset>
+  `;
+
+  // Add listeners to update all_criterias when values change
+  const groupNameInput = formDiv.querySelector('input[name="group-name"]');
+  groupNameInput.addEventListener('input', () => {
+    formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const old_name = all_criterias.group_form_names[formId - 1];
+    all_criterias.group_form_names[formId - 1] = groupNameInput.value; // Update the corresponding value
+    if (old_name !== groupNameInput.value) {
+      all_criterias.groups[groupNameInput.value] = all_criterias.groups[old_name];
+      delete all_criterias.groups[old_name];
+    }
+    getDataAndUpdateViz();
+  });
+
+  const heroCheckboxes = formDiv.querySelectorAll('input[name="heroes"]');
+  heroCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+      //Change name if name is standard
+      if (formDiv.querySelector('input[name="dynamic-group-name"]').checked) {
+        const selectedHeroes = Array.from(heroCheckboxes)
+          .filter(cb => cb.checked)
+          .map(cb => cb.value);
+
+        const new_name = selectedHeroes.length === 1
+          ? selectedHeroes[0]
+          : selectedHeroes.map(hero => hero.slice(0, 3)).join("-");
+
+        const old_name = all_criterias.group_form_names[formId - 1];
+        groupNameInput.value = new_name;
+        all_criterias.group_form_names[formId - 1] = groupNameInput.value; // Update the corresponding value
+        if (old_name !== groupNameInput.value) {
+          all_criterias.groups[groupNameInput.value] = all_criterias.groups[old_name];
+          delete all_criterias.groups[old_name];
+        }
+      }
+
+      const selectedHeroes = Array.from(heroCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {"filter": {}};
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Hero = { precision: "IS-IN", value: selectedHeroes };
+      console.log("Changing!");
+      getDataAndUpdateViz();
+    });
+  });
+
+  const formatRadios = formDiv.querySelectorAll('input[name="format"]');
+  formatRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+      const selectedFormat = formDiv.querySelector('input[name="format"]:checked').value;
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {};
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]].Format = {
+        filter: { Format: { precision: "IS", value: selectedFormat } }
+      };
+      getDataAndUpdateViz();
+    });
+  });
+
+  const startDateInput = formDiv.querySelector('input[name="start-date"]');
+  const endDateInput = formDiv.querySelector('input[name="end-date"]');
+  [startDateInput, endDateInput].forEach(input => {
+    input.addEventListener('change', () => {
+      const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+      const startDate = startDateInput.value;
+      const endDate = endDateInput.value;
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {};
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]]["Start Date"] = {
+        filter: { "Start Date": { precision: "DATE", value: { min: startDate, max: endDate } } }
+      };
+    getDataAndUpdateViz();
+    });
+  });
+
+  // Add toggle functionality for hiding/showing the form content
+  const toggleButton = formDiv.querySelector('.toggle-form');
+  const formContent = formDiv.querySelector('.form-content-container');
+  toggleButton.addEventListener('click', () => {
+    const isHidden = formContent.style.display === 'none';
+    formContent.style.display = isHidden ? 'flex' : 'none';
+    toggleButton.textContent = isHidden ? '🔽 Hide' : '🔼 Show';
+  });
+
+  // Add search functionality for heroes
+  const searchInput = formDiv.querySelector('.hero-search');
+  const heroLabels = Array.from(formDiv.querySelectorAll('.hero-label'));
+
+  searchInput.addEventListener('input', () => {
+    const searchTerm = searchInput.value.toLowerCase();
+    heroLabels.forEach(label => {
+      const heroName = label.textContent.trim().toLowerCase();
+      const brElement = label.nextSibling; // Assuming <br> is the next sibling of the label
+      if (heroName.includes(searchTerm)) {
+        label.style.display = 'inline';
+        if (brElement && brElement.nodeName === 'BR') {
+          brElement.style.display = 'inline';
+        }
+      } else {
+        label.style.display = 'none';
+        if (brElement && brElement.nodeName === 'BR') {
+          brElement.style.display = 'none';
+        }
+      }
+    });
+  });
+
+  // Add listener to the remove button
+  formDiv.querySelector('.remove-form').addEventListener('click', () => {
+    formDiv.remove();
+  });
+
+  formsContainer.appendChild(formDiv);
+}
+
+// Aggiungi il primo form all'avvio
+createForm();
+
+// Listener per aggiungere un nuovo form
+addFormBtn.addEventListener('click', createForm);
+
+// Add this once, outside drawViz
+const tooltip = d3.select("body")
+  .append("div")
+  .attr("id", "d3-tooltip")
+  .style("position", "absolute")
+  .style("background", "#fff")
+  .style("border", "1px solid #999")
+  .style("padding", "4px 8px")
+  .style("pointer-events", "none")
+  .style("display", "none");
+
+
 export async function fetchDecklists(criteria) {
   console.log("Fetching decklists with criteria:", criteria);
   try {
@@ -23,22 +256,12 @@ export async function fetchDecklists(criteria) {
   }
 }
 
-// Add this once, outside drawViz
-const tooltip = d3.select("body")
-  .append("div")
-  .attr("id", "d3-tooltip")
-  .style("position", "absolute")
-  .style("background", "#fff")
-  .style("border", "1px solid #999")
-  .style("padding", "4px 8px")
-  .style("pointer-events", "none")
-  .style("display", "none");
-
-
-  var color;
-  var group_names;
+var color;
+var group_names;
 
 export function setLegend(group_names){
+  console.log("Setting legend with group names:", group_names);
+  console.log("Current group names:", all_criterias.group_form_names);
   // Remove existing legend if any
   d3.select("#legend").remove();
 
@@ -375,11 +598,6 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
 }
 
 const graphs_filters = {};
-const all_criterias = {
-  "filters": {},
-  "groups": {},
-  "graphs": {}
-};
 
 export async function getDataAndUpdateViz(){
   try{  
@@ -387,12 +605,12 @@ export async function getDataAndUpdateViz(){
     if (data.length === 0) {
       console.warn("No data returned for the given criteria.");
     } else {
-      
+
       // color palette
       color = d3.scaleOrdinal()
-        .domain(all_criterias["groups_names"])
+        .domain(Object.values(all_criterias["group_form_names"]))
         .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
-      setLegend(all_criterias["groups_names"]);
+      setLegend(Object.values(all_criterias["group_form_names"]));
       // Draw the graphs
       console.log("Drawing graphs...");
       d3.select("#timeseries_viz").html(""); // Clear previous timeseries visualization if present
@@ -408,52 +626,64 @@ export async function getDataAndUpdateViz(){
   }
 }
 
-// Attach event listeners after DOM is loaded
-window.addEventListener('DOMContentLoaded', () => {
-  console.log("DOM fully loaded. Attaching event listeners.");
+submitAllBtn.addEventListener('click', async () => {
+  console.log("Form submitted. Processing criteria...");
+  const allForms = formsContainer.querySelectorAll('.form-container');
+  const groups = {};
 
-  document.getElementById('criteria-form').onsubmit = async function(e) {
-    e.preventDefault();
-    console.log("Form submitted. Processing criteria...");
+  allForms.forEach(form => {
+    const formData = new FormData(form);
+    console.log("Processing form:", formData);
+    const group = {};
+    const group_name = formData.get('group-name').trim();
 
-    try {
-      const form = e.target;
-      let groups = form.Group.value.split(',').reduce((acc, g) => {
-        const trimmedGroup = g.trim();
-        acc[trimmedGroup] = {"filter": {"Hero": {"precision": "IS-IN", "value": trimmedGroup}}};
-        return acc;
-      }, {});
-      console.log("Group filters:", groups);
-      let matchups = form.Matchups.value.split(',').map(m => m.trim());
-      let criteria = {
-        "filters": {
-          Format: {"precision": "IS", "value": form.Format.value},
-          Rank: {"precision": "RANGE", "min": Number(form.RankMin.value), "max": Number(form.RankMax.value)}
-        },
-        "groups": Object.values(groups).length > 0 ? groups : {},
-        "graphs": {
-          "timeseries_winrates": {
-            "type": "timeseries"
-          },
-          "parallel_coordinates_matchups": {
-            "type": "parallel_coordinates",
-            "matchups": matchups
-          }
-        }
-      };
-
-      group_names = form.Group.value.split(',').map(g => g.trim()); // list of group names
-      
-      console.log("Criteria prepared:", criteria);  
-      // Store the criteria and filters for future use
-      all_criterias["filters"] = criteria.filters;
-      all_criterias["groups"] = criteria.groups;
-      all_criterias["groups_names"] = group_names;
-      all_criterias["graphs"] = criteria.graphs;
-
-      await getDataAndUpdateViz();
-    } catch (error) {
-      console.error("Error processing form submission:", error);
+    const heroes = formData.getAll('heroes');
+    if (heroes.length > 0){
+      group["Hero"] = {"precision": "IS-IN", "value": heroes};
     }
-  };
+    const format = formData.get('format');
+    if (format) {
+      group["Format"] = {"precision": "IS", "value": format};
+    }
+    const startDate = formData.get('start-date');
+    const endDate = formData.get('end-date');
+    if (startDate && endDate) {
+      group["Date"] = {"precision": "DATE", "value": { "min": startDate, "max": endDate }};
+    }
+    const rank = formData.get('rank');
+    if (rank) {
+      group["Rank"] = {"precision": "RANGE", "value": { "min": rank.min, "max": rank.max }};
+    }
+    if (Object.keys(group).length > 0) {
+      groups[group_name] = {"filter" : group};
+    }
+  });
+
+  let criteria = {
+      "filters": {
+      },
+      "groups": Object.values(groups).length > 0 ? groups : {},
+      "graphs": {
+        "timeseries_winrates": {
+          "type": "timeseries"
+        },
+        "parallel_coordinates_matchups": {
+          "type": "parallel_coordinates",
+          "matchups": all_criterias["matchups"]
+        }
+      }
+    };
+  
+  console.log("Criteria prepared:", criteria);  
+  // Store the criteria and filters for future use
+  all_criterias["filters"] = criteria.filters;
+  all_criterias["groups"] = criteria.groups;
+  all_criterias["graphs"] = criteria.graphs;
+
+    
+  try {
+    await getDataAndUpdateViz();
+  } catch (error) {
+    console.error("Error processing form submission:", error);
+  }
 });

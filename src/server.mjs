@@ -20,9 +20,15 @@ function filterDecklists(decklists, criteria) {
     const filtered = decklists.filter(decklist => {
         return Object.entries(criteria).every(([key, value]) => {
             if (value.precision === 'RANGE') {
-                return decklist.Metadata[key] >= value.min && decklist.Metadata[key] <= value.max;
-            } else if (value.precision === 'IS-IN') {
-                return decklist.Metadata[key].includes(value.value);
+                return decklist.Metadata[key] >= value.value.min && decklist.Metadata[key] <= value.value.max;
+            } else if (value.precision === 'DATE') {const decklistDate = new Date(decklist.Metadata[key]);
+                const minDate = new Date(value.value.min);
+                const maxDate = new Date(value.value.max);
+                return decklistDate >= minDate && decklistDate <= maxDate;
+            } else if (value.precision === 'IS') {
+                return decklist.Metadata[key] === value.value;
+            }else if (value.precision === 'IS-IN') {
+                return value.value.some(item => item === decklist.Metadata[key]);
             } else if (value.precision === 'COMPOUND') {
                 if (key === 'Matchups Winrate') {
                     let flag = true;
@@ -214,51 +220,53 @@ function parallelMatchups(grouped_decklists, matchups) {
         */
        let grouped_matchup_winrates = {};
         let heroes = [];
-       Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
-           console.log(`Processing group "${group_name}"`);
-           // Implement the logic for each group
-           const matchupStats = {};
-           let monikers = {};
+        if (Array.isArray(matchups) && matchups.length > 0) {
+            Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
+                console.log(`Processing group "${group_name}"`);
+                // Implement the logic for each group
+                const matchupStats = {};
+                let monikers = {};
 
-           for (const decklist of decklists) {
-               const played_matchups = decklist.Matchups;
-               for (const round of played_matchups) {
-                   const hero = round["Opponent Hero"];
-                   if (!matchups.some(moniker => hero.includes(moniker))) {
-                       continue;
-                   } else if (!matchupStats[hero]) {
-                    if (!heroes.includes(hero)) {
-                       heroes.push(hero);
+                for (const decklist of decklists) {
+                    const played_matchups = decklist.Matchups;
+                    for (const round of played_matchups) {
+                        const hero = round["Opponent Hero"];
+                        if (!matchups.some(moniker => hero.includes(moniker))) {
+                            continue;
+                        } else if (!matchupStats[hero]) {
+                            if (!heroes.includes(hero)) {
+                            heroes.push(hero);
+                            }
+                            monikers[hero] = matchups.find(moniker => hero.includes(moniker));
+                            matchupStats[hero] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
+                        }
+                        matchupStats[hero].played += 1;
+                        if (round["Result"] === "W") {
+                            matchupStats[hero].wins += 1;
+                        } else if (round["Result"] === "L") {
+                            matchupStats[hero].losses += 1;
+                        } else if (round["Result"] === "D") {
+                            matchupStats[hero].draws += 1;
+                        } else {
+                            matchupStats[hero].double_losses += 1;
+                        }
                     }
-                       monikers[hero] = matchups.find(moniker => hero.includes(moniker));
-                       matchupStats[hero] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
-                   }
-                   matchupStats[hero].played += 1;
-                   if (round["Result"] === "W") {
-                       matchupStats[hero].wins += 1;
-                   } else if (round["Result"] === "L") {
-                       matchupStats[hero].losses += 1;
-                   } else if (round["Result"] === "D") {
-                       matchupStats[hero].draws += 1;
-                   } else {
-                       matchupStats[hero].double_losses += 1;
-                   }
-               }
-           }
+                }
 
-           console.log(`Processed ${decklists.length} decklists for group "${group_name}"`);
+                console.log(`Processed ${decklists.length} decklists for group "${group_name}"`);
 
-           const matchupWinrates = [];
-           for (const [hero, stats] of Object.entries(matchupStats)) {
-               const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
-               const playedRounds = stats.played;
-               matchupWinrates.push({ "hero": hero, winrate, playedRounds });
-               console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
-               matchupWinrates.push({"hero": hero, winrate});
-               console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
-           }
-           grouped_matchup_winrates[group_name] = matchupWinrates;
-       });
+                const matchupWinrates = [];
+                for (const [hero, stats] of Object.entries(matchupStats)) {
+                    const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
+                    const playedRounds = stats.played;
+                    matchupWinrates.push({ "hero": hero, winrate, playedRounds });
+                    console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
+                    matchupWinrates.push({"hero": hero, winrate});
+                    console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
+                }
+                grouped_matchup_winrates[group_name] = matchupWinrates;
+            });
+        }
         console.log('Finished calculating matchup winrates for all groups');
         grouped_matchup_winrates["Dimensions"] = heroes.sort();
         return grouped_matchup_winrates;
@@ -272,6 +280,15 @@ function parallelMatchups(grouped_decklists, matchups) {
 app.get('/', (req, res) => {
     console.log('Serving index.html');
     res.sendFile('index.html', { root: '.' });
+});
+
+app.get('/api/formData', (req, res) => {
+    console.log('GET /api/formData - Request received');
+    const formData = {
+        heroes: [...new Set(decklists.flatMap(decklist => decklist.Metadata.Hero))],
+        formats: [...new Set(decklists.map(decklist => decklist.Metadata.Format))]
+    };
+    res.json(formData);
 });
 
 // API endpoint
