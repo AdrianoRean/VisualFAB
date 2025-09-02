@@ -34082,7 +34082,7 @@ async function fetchDecklists(criteria) {
 var color;
 var group_names;
 
-function setLegend(group_names){
+function setLegend(group_names) {
   console.log("Setting legend with group names:", group_names);
   console.log("Current group names:", all_criterias.group_form_names);
   // Remove existing legend if any
@@ -34092,18 +34092,39 @@ function setLegend(group_names){
   const legend = d3__WEBPACK_IMPORTED_MODULE_0__.select("body").append("div")
     .attr("id", "legend")
     .style("position", "absolute")
-    .style("top", "10px")
-    .style("right", "10px")
-    .style("background", "#fff")
-    .style("border", "1px solid #999")
-    .style("padding", "10px")
-    .style("box-shadow", "0px 4px 6px rgba(0, 0, 0, 0.1)");
+    .style("top", "20px")
+    .style("right", "20px")
+    .style("background", "rgba(230, 230, 230, 0.9)")
+    .style("border", "2px solid #333")
+    .style("border-radius", "8px")
+    .style("padding", "20px")
+    .style("box-shadow", "0px 4px 8px rgba(0, 0, 0, 0.2)")
+    .style("font-family", "Arial, sans-serif")
+    .style("font-size", "16px")
+    .style("color", "#333");
 
-  // Add legend items
+  legend.append("div")
+    .style("font-weight", "bold")
+    .style("margin-bottom", "12px")
+    .text("Legend");
+
   group_names.forEach(name => {
-    legend.append("div")
+    const item = legend.append("div")
       .attr("class", "legend-item")
-      .style("color", color(name))
+      .style("display", "flex")
+      .style("align-items", "center")
+      .style("margin-bottom", "8px");
+
+    item.append("span")
+      .style("display", "inline-block")
+      .style("width", "14px")
+      .style("height", "14px")
+      .style("margin-right", "10px")
+      .style("background-color", color(name))
+      .style("border", "1px solid #333")
+      .style("border-radius", "50%");
+
+    item.append("span")
       .text(name);
   });
 }
