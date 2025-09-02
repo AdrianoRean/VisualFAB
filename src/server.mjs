@@ -276,7 +276,39 @@ function parallelMatchups(grouped_decklists, matchups_array) {
 }
 
 function constructCardMatrix(decklists) {
+    console.log('Constructing card matrix from decklists');
+    const cardMatrix = {};
+    const cardNames = new Set();
+    const cardIndexes = {};
+    let index = 0;
 
+    decklists.forEach(decklist => {
+        console.log(`Processing decklist ID: ${decklist.Metadata.Id}`);
+        cardMatrix[decklist.Metadata.Id] = {
+            "data": []
+        };
+        decklist.Cards.forEach(card => {
+            //console.log(`Processing card: ${card.Name}`);
+            const card_name = (card.card_name + " " + card.color).trim();
+            cardNames.add(card_name);
+            cardIndexes[card_name] = cardIndexes[card_name] || index++;
+            cardMatrix[decklist.Metadata.Id]["data"][cardIndexes[card_name]] = parseInt(card.quantity);
+            //console.log(`Card "${card.Name}" index: ${cardIndexes[card.Name]}, count: ${cardMatrix[decklist.ID]["data"][cardIndexes[card.Name]]}`);
+        });
+        cardNames.forEach(cardName => {
+            if (!cardMatrix[decklist.Metadata.Id]["data"][cardIndexes[cardName]]) {
+                cardMatrix[decklist.Metadata.Id]["data"][cardIndexes[cardName]] = 0;
+                //console.log(`Card "${cardName}" not found in decklist ID: ${decklist.ID}, setting count to 0`);
+            }
+        });
+    });
+
+    Object.entries(cardMatrix).forEach(([deckId, deckData]) => {
+        cardMatrix[deckId]["columns"] = Object.keys(cardIndexes).sort((a, b) => cardIndexes[a] - cardIndexes[b]);
+    });
+
+    console.log('Finished constructing card matrix');
+    return cardMatrix;
 }
 
 // Serve default index.html
@@ -351,4 +383,26 @@ app.post('/api/decklists/calculate', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
+});
+
+app.get('/api/decklists/cardMatrix', (req, res) => {
+    try {
+        console.log('GET /api/decklists/cardMatrix - Request received');
+        const criteria =  { Rank: { precision: 'IS', value: 1 } };
+
+        // Filter decklists based on the criteria
+        let filtered = filterDecklists(decklists, criteria);
+
+        console.log(`Filtered decklists: ${JSON.stringify(filtered)}`);
+
+        // Construct the card matrix from the filtered decklists
+        const cardMatrix = constructCardMatrix(filtered);
+
+        // Send the card matrix as the response
+        res.json(cardMatrix);
+        console.log('Response sent with card matrix');
+    } catch (error) {
+        console.error('Error in /api/decklists/cardMatrix:', error.message);
+        res.status(500).json({ error: error.message });
+    }
 });
