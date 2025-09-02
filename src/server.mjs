@@ -35,7 +35,7 @@ function filterDecklists(decklists, criteria) {
                     Object.entries(value.value).forEach(([matchup, values]) => {
                         let played = 0;
                         let wins = 0;
-                        decklist.Matchups.forEach(round => {
+                        decklist["Classic Constructed Matchups"].forEach(round => {
                             if (round["Opponent Hero"] === matchup){
                                 played += 1;
                                 if (round["Result"] === "W") {
@@ -148,7 +148,7 @@ function extractMetadataAndMatchup(decklists) {
     console.log('Extracting metadata and matchups');
     return decklists.map(decklist => ({
         Metadata: decklist.Metadata,
-        Matchups: decklist["Classic Constructed Matchups"]
+        "Classic Constructed Matchups": decklist["Classic Constructed Matchups"]
     }));
 }
 
@@ -229,7 +229,7 @@ function parallelMatchups(grouped_decklists, matchups_array) {
                 let monikers = {};
 
                 for (const decklist of decklists) {
-                    const played_matchups = decklist.Matchups;
+                    const played_matchups = decklist["Classic Constructed Matchups"];
                     for (const round of played_matchups) {
                         const hero = round["Opponent Hero"];
                         if (!matchups.some(moniker => hero.includes(moniker))) {
@@ -273,6 +273,10 @@ function parallelMatchups(grouped_decklists, matchups_array) {
         console.error('Error in /api/decklists/winrate:', error.message);
         //res.status(500).json({ error: error.message });
     }
+}
+
+function constructCardMatrix(decklists) {
+
 }
 
 // Serve default index.html
