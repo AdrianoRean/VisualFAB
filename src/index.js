@@ -489,7 +489,7 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
     // Add a button to open the pop-up menu
     const addMatchupBtn = document.createElement('button');
     addMatchupBtn.className = 'manage-matchup-btn';
-    addMatchupBtn.textContent = 'Add Matchups';
+    addMatchupBtn.textContent = 'Manage Matchups';
     addMatchupBtn.style.height = `${button_height}px`;
     addMatchupBtn.style.margin = `${button_margin}px`;
     name_of_element.appendChild(addMatchupBtn);
