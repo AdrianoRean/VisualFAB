@@ -7,7 +7,6 @@ const all_criterias = {
   "group_form_names": {},
   "groups": {},
   "graphs": {},
-  "matchups": {}
 };
 
 export async function getFormData(){
@@ -60,15 +59,22 @@ export function createForm() {
         <label>Group Name:</label><br>
         <input type="text" name="group-name" value="Group_${group_index}" required>
         <label>
-          <input type="checkbox" name="dynamic-group-name" checked>
+          <br><input type="checkbox" name="dynamic-group-name" checked>
           Dynamic
         </label>
         <br><br>
-        <label>Search Heroes:</label><br>
-        <input type="text" class="hero-search" placeholder="Search heroes..." style="width: 250px;"><br><br>
+        <label>Rank Range:</label><br>
+          <input type="range" name="rank-min" min="0" max="100" value="0" style="width: 120px;" oninput="this.nextElementSibling.textContent = this.value"> 
+          <span>0</span>
+          <br>to<br>
+          <input type="range" name="rank-max" min="0" max="100" value="512" style="width: 120px;" oninput="this.nextElementSibling.textContent = this.value"> 
+          <span>512</span>
+        <br><br>
       </div>
       
       <div class="form-section">
+        <label>Search Heroes:</label><br>
+        <input type="text" class="hero-search" placeholder="Search heroes..." style="width: 250px;"><br><br>
         <label>Heroes:</label><br>
         <div style="width: 250px; height: 100px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px;">
         ${form_heroes.map(hero => `
@@ -102,7 +108,7 @@ export function createForm() {
 
   // Add listeners to update all_criterias when values change
   const groupNameInput = formDiv.querySelector('input[name="group-name"]');
-  groupNameInput.addEventListener('input', () => {
+  function updateGroupName() {
     formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
     const old_name = all_criterias.group_form_names[formId - 1];
@@ -111,13 +117,31 @@ export function createForm() {
       all_criterias.groups[groupNameInput.value] = all_criterias.groups[old_name];
       delete all_criterias.groups[old_name];
     }
+  }
+  groupNameInput.addEventListener('input', () => {
+    formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
+    updateGroupName();
     getDataAndUpdateViz();
   });
 
+  const rankInputs = formDiv.querySelectorAll('input[name="rank-min"], input[name="rank-max"]');
+  function updateRankRange() {
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const rankMin = formDiv.querySelector('input[name="rank-min"]').value;
+    const rankMax = formDiv.querySelector('input[name="rank-max"]').value;
+    all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || { filter: {} };
+    all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Rank = { precision: "RANGE", value: { min: rankMin, max: rankMax } };
+  }
+  rankInputs.forEach(input => {
+    input.addEventListener('input', () => {
+      updateRankRange();
+      getDataAndUpdateViz();
+    });
+  });
+
   const heroCheckboxes = formDiv.querySelectorAll('input[name="heroes"]');
-  heroCheckboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', () => {
-      const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+  function updateHeroSelection(){
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
       //Change name if name is standard
       if (formDiv.querySelector('input[name="dynamic-group-name"]').checked) {
         const selectedHeroes = Array.from(heroCheckboxes)
@@ -143,35 +167,41 @@ export function createForm() {
       all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {"filter": {}};
       all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Hero = { precision: "IS-IN", value: selectedHeroes };
       console.log("Changing!");
+  }
+  heroCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      updateHeroSelection();
       getDataAndUpdateViz();
     });
   });
 
   const formatRadios = formDiv.querySelectorAll('input[name="format"]');
-  formatRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
+  function updateFormatSelection() {
       const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
       const selectedFormat = formDiv.querySelector('input[name="format"]:checked').value;
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {};
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]].Format = {
-        filter: { Format: { precision: "IS", value: selectedFormat } }
-      };
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {filter : {}};
+      all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Format = { precision: "IS", value: selectedFormat };
+  }
+  formatRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      updateFormatSelection();
       getDataAndUpdateViz();
     });
   });
 
   const startDateInput = formDiv.querySelector('input[name="start-date"]');
   const endDateInput = formDiv.querySelector('input[name="end-date"]');
+  function updateDateRange() {
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
+    all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {filter : {}};
+    all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Date = { precision: "DATE", value: { min: startDate, max: endDate } }
+  };
   [startDateInput, endDateInput].forEach(input => {
     input.addEventListener('change', () => {
-      const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
-      const startDate = startDateInput.value;
-      const endDate = endDateInput.value;
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {};
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]]["Start Date"] = {
-        filter: { "Start Date": { precision: "DATE", value: { min: startDate, max: endDate } } }
-      };
-    getDataAndUpdateViz();
+      updateDateRange();
+      getDataAndUpdateViz();
     });
   });
 
@@ -213,10 +243,26 @@ export function createForm() {
   });
 
   formsContainer.appendChild(formDiv);
-}
 
-// Aggiungi il primo form all'avvio
-createForm();
+  // Adjust group filtering
+  const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+  all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {filter : {}};
+  //updateGroupName();
+  //updateHeroSelection();
+  //updateFormatSelection(); 
+  //updateDateRange();
+  // If there are matchups in all_criterias, add them to the new group
+  if (all_criterias.graphs["parallel_coordinates_matchups"]?.matchups) {
+    all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter["Matchups Winrate"] = {
+      precision: "COMPOUND",
+      value: all_criterias.graphs["parallel_coordinates_matchups"].matchups.reduce((acc, matchup) => {
+      acc[matchup.name] = { min: matchup.range.min, max: matchup.range.max };
+      return acc;
+      }, {})
+    };
+  }
+  getDataAndUpdateViz();
+}
 
 // Listener per aggiungere un nuovo form
 addFormBtn.addEventListener('click', createForm);
@@ -375,6 +421,20 @@ export function timeseriesGraph(name_of_element, data) {
 }
 
 export function adjustGroupFilters(data, dim, this_graph_filters){
+
+  // Ensure all groups have the matchup filter with current graph filters
+  Object.keys(this_graph_filters).forEach(dim => {
+    const existingMatchup = all_criterias.graphs["parallel_coordinates_matchups"].matchups.find(matchup => matchup.name === dim);
+    if (existingMatchup) {
+      existingMatchup.range = this_graph_filters[dim];
+    } else {
+      all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({
+        name: dim,
+        range: this_graph_filters[dim]
+      });
+    }
+  });
+
   Object.entries(data).forEach(([group, group_data]) => {
     let group_filter = all_criterias["groups"][group];
     if (group_filter["filter"]["Matchups Winrate"] === undefined) {
@@ -393,24 +453,24 @@ export function adjustGroupFilters(data, dim, this_graph_filters){
   });
 }
 
+let selected_matchups = [];
+
 export function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   console.log("Initializing parallel coordinates graph...");
-
-  // set the dimensions and margins of the graph
-  var margin = {top: 30, right: 0, bottom: 10, left: 0},
-    width = 150 - margin.left - margin.right,
-    height = 400 - margin.top - margin.bottom;
   
-  // Set the size of the HTML element
-  d3.select(name_of_element)
-    .style("width", `${width + margin.left + margin.right}px`)
-    .style("height", `${height + margin.top + margin.bottom}px`);
+  const button_height = 30;
+  const button_margin = 10;
 
   function createMatchupPopup(form_heroes, all_criterias, name_of_element) {
+
+    // Check if the button already exists to avoid duplicates
+    console.log("Creating matchup pop-up...");
     // Add a button to open the pop-up menu
     const addMatchupBtn = document.createElement('button');
+    addMatchupBtn.className = 'manage-matchup-btn';
     addMatchupBtn.textContent = 'Add Matchups';
-    addMatchupBtn.style.margin = '10px';
+    addMatchupBtn.style.height = `${button_height}px`;
+    addMatchupBtn.style.margin = `${button_margin}px`;
     name_of_element.appendChild(addMatchupBtn);
 
     // Create the pop-up menu
@@ -451,20 +511,64 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
 
     // Add event listeners for the pop-up menu
     addMatchupBtn.addEventListener('click', () => {
+      console.log("Selected matchups:", selected_matchups);
       matchupPopup.style.display = 'block';
+      // Set checkboxes to checked for existing matchups
+      const matchupCheckboxes = matchupPopup.querySelectorAll('.matchup-checkbox');
+      matchupCheckboxes.forEach(checkbox => {
+        if (selected_matchups.includes(checkbox.value)) {
+          checkbox.checked = true;
+        }
+      });
     });
 
-    document.getElementById('matchup-popup-cancel').addEventListener('click', () => {
+    matchupPopup.querySelector('#matchup-popup-cancel').addEventListener('click', () => {
       matchupPopup.style.display = 'none';
     });
 
-    document.getElementById('matchup-popup-submit').addEventListener('click', () => {
-      const selectedMatchups = Array.from(matchupPopup.querySelectorAll('.matchup-checkbox:checked'))
+    matchupPopup.querySelector('#matchup-popup-submit').addEventListener('click', () => {
+      selected_matchups = Array.from(matchupPopup.querySelectorAll('.matchup-checkbox:checked'))
         .map(checkbox => checkbox.value);
 
-      if (selectedMatchups.length > 0) {
-        all_criterias.matchups = selectedMatchups;
-        console.log('Matchups added:', selectedMatchups);
+      if (selected_matchups.length > 0) {
+        if (!all_criterias.graphs["parallel_coordinates_matchups"]) {
+          all_criterias.graphs["parallel_coordinates_matchups"] = {
+            "type": "parallel_coordinates",
+            "matchups": undefined
+          };
+        }
+
+        // Remove matchups that are no longer selected
+        if (all_criterias.graphs["parallel_coordinates_matchups"].matchups) {
+          all_criterias.graphs["parallel_coordinates_matchups"].matchups = all_criterias.graphs["parallel_coordinates_matchups"].matchups.filter(matchup =>
+            selected_matchups.includes(matchup.name)
+          );
+        }
+
+        // Cleanup filters in all_criterias.groups that are no longer in selected_matchups
+        Object.keys(all_criterias.groups).forEach(group => {
+          let matchupsFilter = all_criterias.groups[group].filter;
+          matchupsFilter = matchupsFilter["Matchups Winrate"] ? matchupsFilter["Matchups Winrate"] : undefined;
+          if (matchupsFilter && matchupsFilter.precision === "COMPOUND") {
+            Object.keys(matchupsFilter.value).forEach(matchup => {
+              if (!selected_matchups.includes(matchup)) {
+          delete matchupsFilter.value[matchup];
+              }
+            });
+          }
+        });
+
+        // Add new matchups for selected heroes
+        selected_matchups.forEach(hero => {
+          if (!all_criterias.graphs["parallel_coordinates_matchups"].matchups) {
+            all_criterias.graphs["parallel_coordinates_matchups"].matchups = [];
+          }
+          if (!all_criterias.graphs["parallel_coordinates_matchups"].matchups.some(matchup => matchup.name === hero)) {
+            all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: hero, range: { min: 0, max: 100 } });
+          }
+        });
+
+        console.log('Matchups added:', selected_matchups);
         getDataAndUpdateViz();
       }
 
@@ -474,7 +578,9 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
 
   // Call the helper function
   const element = document.querySelector(name_of_element);
-  createMatchupPopup(form_heroes, all_criterias, element);
+  if (!element.querySelector('button.manage-matchup-btn')) {
+    createMatchupPopup(form_heroes, all_criterias, element);
+  }
 
   console.log("Extracting dimensions...");
   // Extract the list of dimensions we want to keep in the plot. Here I keep all except the column called Species
@@ -482,8 +588,14 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   delete data.Dimensions;
   console.log("Dimensions:", dimensions);
 
-  margin = {top: 30, right: 0, bottom: 10, left: 0},
-  width = 150 - margin.left - margin.right,
+  var margin = {top: 10, right: 0, bottom: 30, left: 0},
+      width, height;
+
+  if (dimensions.length === 0) {
+    width = 150 - margin.left - margin.right;
+  } else {
+    width = 150 * dimensions.length - margin.left - margin.right;
+  }
   height = 400 - margin.top - margin.bottom;
   
   // Set the size of the HTML element
@@ -496,10 +608,10 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   var svg = d3.select(name_of_element)
   .append("svg")
     .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
+    .attr("height", height + margin.top + margin.bottom - button_height - button_margin * 2)
   .append("g")
     .attr("transform",
-          "translate(" + margin.left + "," + margin.top + ")");
+          "translate(" + margin.left + "," + (margin.top + button_margin) + ")");
 
   console.log("data:", data);
 
@@ -512,11 +624,13 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
     .padding(0.5)
     .domain(dimensions);
 
+  const y_height = height - button_height - button_margin * 2;
+
   console.log("Setting up Y scales...");
   // For each dimension, I build a linear scale. I store all in a y object
   var y = d3.scaleLinear()
       .domain([0, 100])
-      .range([height, 0]);
+      .range([y_height, 0]);
 
   console.log("Y scale:", y);
 
@@ -710,7 +824,7 @@ export async function getDataAndUpdateViz(){
   }
 }
 
-submitAllBtn.addEventListener('click', async () => {
+export async function restartViz(){
   console.log("Form submitted. Processing criteria...");
   const allForms = formsContainer.querySelectorAll('.form-container');
   const groups = {};
@@ -770,4 +884,13 @@ submitAllBtn.addEventListener('click', async () => {
   } catch (error) {
     console.error("Error processing form submission:", error);
   }
+}
+
+submitAllBtn.addEventListener('click', async () => {
+  restartViz();
 });
+
+restartViz();
+
+// Aggiungi il primo form all'avvio
+createForm();

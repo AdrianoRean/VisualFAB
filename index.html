@@ -5,24 +5,14 @@
   <title>FAB Decklist Winrate Viz</title>
 </head>
 <body>
-  <h1>FAB Decklist Winrate Visualization</h1>
-  <!-- 
-  <form id="criteria-form">
-    Format: <input name="Format" value="Classic Constructed"><br>
-    Rank min: <input name="RankMin" type="number" value="1"><br>
-    Rank max: <input name="RankMax" type="number" value="500"><br>
-    Group: <input name="Group" value="Cindra, Gravy"><br>
-    Matchups: <input name="Matchups" value="Arakni, Fang, Cindra, Gravy, Verdance"><br>
-    <button type="submit">Update Viz</button>
-  </form>
-  -->
-  
-  <button id="submit-all">Start Exploration</button>
-  <button id="toggle-forms">Toggle Forms</button>
-  <br><br>
+  <div style="margin-top: 10px;">
+    <h1 style="display: inline; padding: 10px 20px; margin-right: 10px;">FAB Decklist Winrate Visualization</h1>  
+    <button id="submit-all" style="display: inline; padding: 10px 20px; font-size: 16px; margin-right: 10px;">Restart Exploration</button>
+    <button id="toggle-forms" style="display: inline; padding: 10px 20px; font-size: 16px;">Toggle Forms</button>
+  </div>
   <div id="form-display">
+    <button id="add-form" style="padding: 5px 5px; font-size: 16px;">➕ Add Decklist Group</button><br>
     <div id="forms-container" style="display: flex; flex-direction: row; flex-wrap: wrap;"></div>
-    <button id="add-form">➕ Add Decklist Group</button>
   </div>
   <script>
     document.getElementById('toggle-forms').addEventListener('click', () => {

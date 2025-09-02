@@ -194,11 +194,11 @@ function timeseriesWinrates(grouped_decklists) {
     }
 };
 
-function parallelMatchups(grouped_decklists, matchups) {
+function parallelMatchups(grouped_decklists, matchups_array) {
     try{
         // Implementation for parallelMatchups
         //console.log('Grouped decklists:', grouped_decklists);
-        console.log('Matchups:', matchups);
+        console.log('Matchups:', matchups_array);
         // Here you would implement the logic for parallel matchups
         /*
         Object.entries(matchups).forEach(([matchup_name, matchup_data]) => {
@@ -218,7 +218,8 @@ function parallelMatchups(grouped_decklists, matchups) {
             }
         });
         */
-       let grouped_matchup_winrates = {};
+    const matchups = matchups_array ? matchups_array.map(matchup => matchup.name) : [];
+    let grouped_matchup_winrates = {};
         let heroes = [];
         if (Array.isArray(matchups) && matchups.length > 0) {
             Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
@@ -259,9 +260,7 @@ function parallelMatchups(grouped_decklists, matchups) {
                 for (const [hero, stats] of Object.entries(matchupStats)) {
                     const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
                     const playedRounds = stats.played;
-                    matchupWinrates.push({ "hero": hero, winrate, playedRounds });
-                    console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
-                    matchupWinrates.push({"hero": hero, winrate});
+                    matchupWinrates.push({ "hero": hero, winrate, playedRounds});
                     console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
                 }
                 grouped_matchup_winrates[group_name] = matchupWinrates;
