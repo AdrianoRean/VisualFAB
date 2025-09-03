@@ -280,8 +280,15 @@ function parallelMatchups(grouped_decklists, matchups_array) {
 function constructCardMatrix(grouped_decklists) {
     console.log('Constructing card matrix from grouped decklists');
     const decklists = Object.values(grouped_decklists).flat();
+    const decklistToGroup = {};
+    Object.entries(grouped_decklists).forEach(([group, lists]) => {
+        lists.forEach(decklist => {
+            decklistToGroup[decklist.Metadata["List Id"]] = group;
+        });
+    });
     console.log('Constructing card matrix from decklists');
     const cardMatrix = new Array(decklists.length).fill([]);
+    const cardInfo = new Array(decklists.length).fill([]);
     const cardNames = [];
     const cardIndexes = {};
     let decklist_index = 0;
@@ -301,6 +308,14 @@ function constructCardMatrix(grouped_decklists) {
     decklists.forEach(decklist => {
         //.log(`Processing decklist ID: ${decklist.Metadata.Id}`);
         cardMatrix[decklist_index] = new Array(cardNames.length).fill(0);
+        cardInfo[decklist_index] = {
+            id: decklist.Metadata["List Id"],
+            date: decklist.Metadata.Date,
+            event: decklist.Metadata.Event,
+            rank: decklist.Metadata.Rank,
+            hero: decklist.Metadata.Hero,
+            group: decklistToGroup[decklist.Metadata["List Id"]] || "Ungrouped"
+        };
         decklist.Cards.forEach(card => {
             const card_name = (card.card_name + " " + card.color).trim();
             //console.log(`Processing card: ${card.Name}`);
@@ -311,24 +326,29 @@ function constructCardMatrix(grouped_decklists) {
     });
 
     console.log('Finished constructing card matrix');
-    return cardMatrix;
+    return {cardMatrix, cardInfo};
 }
 
 async function performUMAP(decklistsMatrix) {
+
+    const {cardMatrix, cardInfo} = decklistsMatrix;
     //shape = [n_decks, n_cards]
     const umap = new UMAP({
         nComponents: 2,
-        nNeighbors: 15,
         minDist: 0.1,
         metric: 'cosine', //'euclidean' 'jaccard'
     });
 
-    const embedding = await umap.fitAsync(decklistsMatrix);
-
+    let embedding = await umap.fitAsync(cardMatrix);
     const reshapedEmbedding = {
         component1: embedding.map(point => point[0]),
         component2: embedding.map(point => point[1])
     };
+    embedding = embedding.map((point, index) => [
+        point[0],
+        point[1],
+        cardInfo[index]
+    ]);
 
     const min_x = Math.min(...reshapedEmbedding.component1);
     const max_x = Math.max(...reshapedEmbedding.component1);

@@ -64,8 +64,8 @@ export function createForm() {
         </label>
         <br><br>
         <label>Rank Range:</label><br>
-          <input type="range" name="rank-min" min="0" max="100" value="0" style="width: 120px;" oninput="this.nextElementSibling.textContent = this.value"> 
-          <span>0</span>
+          <input type="range" name="rank-min" min="0" max="100" value="1" style="width: 120px;" oninput="this.nextElementSibling.textContent = this.value"> 
+          <span>1</span>
           <br>to<br>
           <input type="range" name="rank-max" min="0" max="100" value="512" style="width: 120px;" oninput="this.nextElementSibling.textContent = this.value"> 
           <span>512</span>
@@ -821,6 +821,8 @@ let scatter_updated = false;
 export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   console.log("Drawing scatter plot with data:", graph_data);
 
+  let warningText;
+  let fetchScatterPlotBtn;
   // Set the dimensions and margins of the graph
   const margin = {top: 10, right: 0, bottom: 30, left: 0},
     width = 460 - margin.left - margin.right,
@@ -828,82 +830,124 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
 
   const button_height = 20;
   const button_margin = 5;
-  // Set the height and ensure alignment of the HTML element
-  d3.select(name_of_element)
-      .style("height", `${height + margin.top + margin.bottom}px`)
-      .style("display", "inline-block")
-      .style("vertical-align", "top");
 
-  // Add a button to fetch scatter plot data
-  const fetchScatterPlotBtn = document.createElement('button');
-  fetchScatterPlotBtn.textContent = 'Update Scatter Plot Data';
-  fetchScatterPlotBtn.style.height = `${button_height}px`;
-  fetchScatterPlotBtn.style.margin = `${button_margin}px`;
-  fetchScatterPlotBtn.id = 'update-scatter-plot-btn';
-  fetchScatterPlotBtn.style.display = 'block';
-  document.querySelector(name_of_element).appendChild(fetchScatterPlotBtn);
+  if (!document.querySelector(`${name_of_element} #update-scatter-plot-btn`)) {
+    // Set the height and ensure alignment of the HTML element
+    d3.select(name_of_element)
+        .style("height", `${height + margin.top + margin.bottom}px`)
+        .style("display", "inline-block")
+        .style("vertical-align", "top");
 
-  // Add fetch button listener
-  fetchScatterPlotBtn.addEventListener('click', async () => {
-    try {
-      console.log("Fetching scatter plot data...");
-      const json_body = {
-        filters: all_criterias.filters,
-        groups: all_criterias.groups,
-        graphs: {
-          scatter_plot_card_presence: all_criterias.graphs.scatter_plot_card_presence ? all_criterias.graphs.scatter_plot_card_presence : { "type": "scatter_plot" }
-        }
-      };
-      console.log("Sending request with body:", json_body);
+    // Add a button to fetch scatter plot data
+    fetchScatterPlotBtn = document.createElement('button');
+    fetchScatterPlotBtn.textContent = 'Update Scatter Plot Data';
+    fetchScatterPlotBtn.style.height = `${button_height}px`;
+    fetchScatterPlotBtn.style.margin = `${button_margin}px`;
+    fetchScatterPlotBtn.id = 'update-scatter-plot-btn';
+    fetchScatterPlotBtn.style.display = 'inline-block';
+    fetchScatterPlotBtn.style.backgroundColor = scatter_updated ? 'green' : 'red';
 
-      // Helper function to show a rotating loading indicator
-      function showLoadingIndicator(parentElement) {
-        const loadingIndicator = document.createElement('div');
-        loadingIndicator.className = 'loading-indicator';
-        loadingIndicator.style.border = '4px solid #f3f3f3';
-        loadingIndicator.style.borderTop = '4px solid #3498db';
-        loadingIndicator.style.borderRadius = '50%';
-        loadingIndicator.style.width = '30px';
-        loadingIndicator.style.height = '30px';
-        loadingIndicator.style.animation = 'spin 1s linear infinite';
-        loadingIndicator.style.margin = '10px auto';
-        loadingIndicator.style.display = 'block';
-        parentElement.appendChild(loadingIndicator);
-
-        // Add CSS for the spinning animation if not already added
-        if (!document.querySelector('style#loading-indicator-style')) {
-          const style = document.createElement('style');
-          style.id = 'loading-indicator-style';
-          style.innerHTML = `
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-          `;
-          document.head.appendChild(style);
-        }
-
-        return loadingIndicator;
-      }
-
-      // Show loading indicator
-      const loadingIndicator = showLoadingIndicator(document.querySelector(name_of_element));
-      let response = null;
-      let scatterData = null;
-      try {
-        response = await fetch('http://localhost:3000/api/decklists/calculate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(json_body)
+    // Add hover tooltip
+    fetchScatterPlotBtn.addEventListener('mouseover', (event) => {
+      tooltip
+        .style("display", "block")
+        .html(`Heavy calculations, may need several seconds`)
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 28) + "px")
+        .style("background-color", "yellow");
+    });
+    fetchScatterPlotBtn.addEventListener("mousemove", function(event) {
+          tooltip
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+    fetchScatterPlotBtn.addEventListener("mouseout", function() {
+          tooltip.style("display", "none")
+          .style("background-color", "#fff");
         });
+    document.querySelector(name_of_element).appendChild(fetchScatterPlotBtn);
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch scatter plot data. Status: ${response.status}, Status Text: ${response.statusText}`);
+    warningText = document.createElement('div');
+    warningText.style.display = scatter_updated ? 'none' : 'inline-block';
+    warningText.textContent = 'PLOT NOT REFLECTING ACTUAL SELECTIONS';
+    warningText.style.color = 'red';
+    warningText.style.fontWeight = 'bold';
+    warningText.style.marginTop = '5px';
+    warningText.id = 'scatter-plot-warning';
+    document.querySelector(name_of_element).appendChild(warningText);
+
+    // Add fetch button listener
+    fetchScatterPlotBtn.addEventListener('click', async () => {
+      try {
+        console.log("Fetching scatter plot data...");
+        const json_body = {
+          filters: all_criterias.filters,
+          groups: all_criterias.groups,
+          graphs: {
+            scatter_plot_card_presence: { "type": "scatter_plot" }
+          }
+        };
+        console.log("Sending request with body:", json_body);
+
+        // Helper function to show a rotating loading indicator
+        function showLoadingIndicator(parentElement) {
+          const loadingIndicator = document.createElement('div');
+          loadingIndicator.className = 'loading-indicator';
+          loadingIndicator.style.border = '4px solid #f3f3f3';
+          loadingIndicator.style.borderTop = '4px solid #3498db';
+          loadingIndicator.style.borderRadius = '50%';
+          loadingIndicator.style.width = '30px';
+          loadingIndicator.style.height = '30px';
+          loadingIndicator.style.animation = 'spin 1s linear infinite';
+          loadingIndicator.style.margin = '10px auto';
+          loadingIndicator.style.display = 'block';
+          parentElement.appendChild(loadingIndicator);
+
+          // Add CSS for the spinning animation if not already added
+          if (!document.querySelector('style#loading-indicator-style')) {
+            const style = document.createElement('style');
+            style.id = 'loading-indicator-style';
+            style.innerHTML = `
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+            `;
+            document.head.appendChild(style);
+          }
+
+          return loadingIndicator;
         }
 
-        scatterData = await response.json();
-        console.log("Fetched scatter plot data successfully:", scatterData);
+        // Show loading indicator
+        const loadingIndicator = showLoadingIndicator(document.querySelector(name_of_element));
+        let response = null;
+        let scatterData = null;
+        try {
+          response = await fetch('http://localhost:3000/api/decklists/calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(json_body)
+          });
 
+          if (!response.ok) {
+            throw new Error(`Failed to fetch scatter plot data. Status: ${response.status}, Status Text: ${response.statusText}`);
+          }
+
+          scatterData = await response.json();
+          console.log("Fetched scatter plot data successfully:", scatterData);
+
+          // Clear previous scatter plot visualization
+          d3.select(name_of_element).html("");
+
+          // Redraw scatter plot with the new data
+          scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+        } catch (error) {
+          console.error("Error fetching scatter plot data:", error);
+        } finally {
+          // Remove the loading indicator
+          loadingIndicator.remove();
+        }
         // Clear previous scatter plot visualization
         d3.select(name_of_element).html("");
 
@@ -911,49 +955,40 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
         scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
       } catch (error) {
         console.error("Error fetching scatter plot data:", error);
-      } finally {
-        // Remove the loading indicator
-        loadingIndicator.remove();
       }
-      // Clear previous scatter plot visualization
-      d3.select(name_of_element).html("");
-
-      // Redraw scatter plot with the new data
-      scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
-    } catch (error) {
-      console.error("Error fetching scatter plot data:", error);
-    }
-  });
-
-  /*
-  active = true;
-  graph_data = {
-    Metadata: {
-      min_x: 0,
-      max_x: 50,
-      min_y: 0,
-      max_y: 50,
-      x_label: "X-Axis Label",
-      y_label: "Y-Axis Label"
-    },
-    data: [
-      [[10, 20],
-      [15, 25],
-      [20, 30],
-      [25, 35],
-      [30, 40]]
-    ]
+    });
   }
-  */
+
+  if (!scatter_updated) {
+    console.log("Scatter plot not updated.");
+    warningText = d3.select(`#scatter-plot-warning`);
+    warningText.text('PLOT NOT REFLECTING ACTUAL SELECTIONS')
+      .style('color', 'red')
+      .style('font-weight', 'bold')
+      .style('margin-top', '5px')
+      .style('display', 'inline-block');
+
+    fetchScatterPlotBtn = d3.select(`#update-scatter-plot-btn`);
+    fetchScatterPlotBtn.style('background-color', 'red');
+  }else{
+    console.log("Scatter plot updated successfully.");
+    warningText = d3.select(`#scatter-plot-warning`);
+    warningText.style('display', 'none');
+
+    fetchScatterPlotBtn = d3.select(`#update-scatter-plot-btn`);
+    fetchScatterPlotBtn.style('background-color', 'green');
+  }
 
   if (active) {
 
     // Append the svg object to the specified element
-    const svg_height = height + margin.top + margin.bottom - button_height - button_margin * 2
+    const svg_height = height + margin.top + margin.bottom - button_height - button_margin * 2;
     const svg = d3.select(name_of_element)
       .append("svg")
       .attr("width", width - margin.left - margin.right)
       .attr("height", svg_height)
+      .style("display", "block") // Ensure it appears as a block element
+      //.style("margin-top", `${button_height + button_margin}px`); // Add margin to appear below the button and warning text
 
     scatter_updated = true;
 
@@ -1003,33 +1038,31 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
 
     // Add points
     svg.selectAll(`scatter-circle`)
-    .data(data)
+    .data(data, d => d[2].id) // Use d[2].id as the key
     .enter()
     .append("circle")
     .attr("cx", d => x(d[0]))
     .attr("cy", d => y(d[1]))
     .attr("r", 5)
     .attr("transform", `translate(0,${graph_margins*3})`)
-    /*
-    .attr("fill", color(group))
+    .attr("fill", d => color(d[2].group))
     .on("mouseover", function (event, d) {
       d3.select(this).attr("fill", "red");
       tooltip
-        .style("display", "block")
-        .html(`Group: ${group}<br>${metadata.x_label}: ${d.x}<br>${metadata.y_label}: ${d.y}`)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
+      .style("display", "block")
+      .html(`Group: ${d[2].group}<br>Rank: ${d[2].rank}<br>Event: ${d[2].event}<br>Hero: ${d[2].hero}<br>ID: ${d[2].id}`)
+      .style("left", (event.pageX + 10) + "px")
+      .style("top", (event.pageY - 28) + "px");
     })
     .on("mousemove", function (event) {
       tooltip
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
+      .style("left", (event.pageX + 10) + "px")
+      .style("top", (event.pageY - 28) + "px");
     })
-    .on("mouseout", function () {
-      d3.select(this).attr("fill", color(group));
+    .on("mouseout", function (event, d) {
+      d3.select(this).attr("fill", color(d[2].group));
       tooltip.style("display", "none");
     });
-    */
   }
 
   console.log("Scatter plot drawn successfully.");
@@ -1038,6 +1071,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
 const graphs_filters = {};
 
 export async function getDataAndUpdateViz(){
+  scatter_updated = false;
   try{  
     const data = await fetchDecklists(all_criterias);
     if (data.length === 0) {
@@ -1058,7 +1092,6 @@ export async function getDataAndUpdateViz(){
         graphs_filters["parallel_coordinates_matchups"] = {};
       }
       parallelCoordinatesGraph("#parallel_coordinates_viz", data["parallel_coordinates_matchups"], graphs_filters["parallel_coordinates_matchups"]);
-      d3.select("#scatter_plot_viz").html(""); // Clear previous scatter plot visualization if present
       if (data["scatter_plot_card_presence"]) {
         d3.select("#scatter_plot_viz").html(""); // Clear previous scatter plot visualization if present
         scatterPlotGraph("#scatter_plot_viz", data["scatter_plot_card_presence"]);
