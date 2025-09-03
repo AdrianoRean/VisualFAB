@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
+import { UMAP } from 'umap-js';
 
 const app = express();
 const PORT = 3000;
@@ -21,7 +22,8 @@ function filterDecklists(decklists, criteria) {
         return Object.entries(criteria).every(([key, value]) => {
             if (value.precision === 'RANGE') {
                 return decklist.Metadata[key] >= value.value.min && decklist.Metadata[key] <= value.value.max;
-            } else if (value.precision === 'DATE') {const decklistDate = new Date(decklist.Metadata[key]);
+            } else if (value.precision === 'DATE') {
+                const decklistDate = new Date(decklist.Metadata[key]);
                 const minDate = new Date(value.value.min);
                 const maxDate = new Date(value.value.max);
                 return decklistDate >= minDate && decklistDate <= maxDate;
@@ -275,40 +277,69 @@ function parallelMatchups(grouped_decklists, matchups_array) {
     }
 }
 
-function constructCardMatrix(decklists) {
+function constructCardMatrix(grouped_decklists) {
+    console.log('Constructing card matrix from grouped decklists');
+    const decklists = Object.values(grouped_decklists).flat();
     console.log('Constructing card matrix from decklists');
-    const cardMatrix = {};
-    const cardNames = new Set();
+    const cardMatrix = new Array(decklists.length).fill([]);
+    const cardNames = [];
     const cardIndexes = {};
+    let decklist_index = 0;
     let index = 0;
 
     decklists.forEach(decklist => {
-        console.log(`Processing decklist ID: ${decklist.Metadata.Id}`);
-        cardMatrix[decklist.Metadata.Id] = {
-            "data": []
-        };
         decklist.Cards.forEach(card => {
-            //console.log(`Processing card: ${card.Name}`);
             const card_name = (card.card_name + " " + card.color).trim();
-            cardNames.add(card_name);
-            cardIndexes[card_name] = cardIndexes[card_name] || index++;
-            cardMatrix[decklist.Metadata.Id]["data"][cardIndexes[card_name]] = parseInt(card.quantity);
-            //console.log(`Card "${card.Name}" index: ${cardIndexes[card.Name]}, count: ${cardMatrix[decklist.ID]["data"][cardIndexes[card.Name]]}`);
-        });
-        cardNames.forEach(cardName => {
-            if (!cardMatrix[decklist.Metadata.Id]["data"][cardIndexes[cardName]]) {
-                cardMatrix[decklist.Metadata.Id]["data"][cardIndexes[cardName]] = 0;
-                //console.log(`Card "${cardName}" not found in decklist ID: ${decklist.ID}, setting count to 0`);
+            const cardName = card_name;
+            if (!cardNames.includes(card_name)) {
+                cardNames.push(card_name);
+                cardIndexes[card_name] = index++;
             }
         });
     });
 
-    Object.entries(cardMatrix).forEach(([deckId, deckData]) => {
-        cardMatrix[deckId]["columns"] = Object.keys(cardIndexes).sort((a, b) => cardIndexes[a] - cardIndexes[b]);
+    decklists.forEach(decklist => {
+        //.log(`Processing decklist ID: ${decklist.Metadata.Id}`);
+        cardMatrix[decklist_index] = new Array(cardNames.length).fill(0);
+        decklist.Cards.forEach(card => {
+            const card_name = (card.card_name + " " + card.color).trim();
+            //console.log(`Processing card: ${card.Name}`);
+            cardMatrix[decklist_index][cardIndexes[card_name]] = parseInt(card.quantity);
+            //console.log(`Card "${card.Name}" index: ${cardIndexes[card.Name]}, count: ${cardMatrix[decklist.ID]["data"][cardIndexes[card.Name]]}`);
+        });
+        decklist_index++;
     });
 
     console.log('Finished constructing card matrix');
     return cardMatrix;
+}
+
+async function performUMAP(decklistsMatrix) {
+    //shape = [n_decks, n_cards]
+    const umap = new UMAP({
+        nComponents: 2,
+        nNeighbors: 15,
+        minDist: 0.1,
+        metric: 'cosine', //'euclidean' 'jaccard'
+    });
+
+    const embedding = await umap.fitAsync(decklistsMatrix);
+
+    const reshapedEmbedding = {
+        component1: embedding.map(point => point[0]),
+        component2: embedding.map(point => point[1])
+    };
+
+    const min_x = Math.min(...reshapedEmbedding.component1);
+    const max_x = Math.max(...reshapedEmbedding.component1);
+    const min_y = Math.min(...reshapedEmbedding.component2);
+    const max_y = Math.max(...reshapedEmbedding.component2);
+
+    console.log('UMAP reshaped embedding range:', { minX: min_x, maxX: max_x, minY: min_y, maxY: max_y });
+    return { 
+        "data": embedding, 
+        "Metadata": { min_x: min_x, max_x: max_x, min_y: min_y, max_y: max_y } 
+    };
 }
 
 // Serve default index.html
@@ -350,28 +381,32 @@ app.post('/api/decklists/calculate', async (req, res) => {
         console.log('Filter criteria:', filterCriteria);
         console.log('Group criteria:', groupCriteria);
         console.log('Graph requests:', graph_requests);
-        let filtered = filterDecklists(decklists, filterCriteria);
-        filtered = extractMetadataAndMatchup(filtered);
+        const filtered = filterDecklists(decklists, filterCriteria);
         let grouped_decklists = groupDecklists(filtered, groupCriteria);
         let json_response = {};
-        Object.entries(graph_requests).forEach(([graph_name, request_data]) => {
+        for (const [graph_name, request_data] of Object.entries(graph_requests)) {
             console.log(`Processing ${graph_name} with data:`, request_data);
             // Here you would call the appropriate function to handle each graph type
             switch (request_data.type) {
-                case 'timeseries':
-                    // Call the function to handle timeseries graph
-                    let timeseries_data = timeseriesWinrates(grouped_decklists);
-                    json_response[graph_name] = timeseries_data;
-                    break;
-                case 'parallel_coordinates':
-                    // Call the function to handle parallel coordinates graph
-                    let parallel_coordinates_data = parallelMatchups(grouped_decklists, request_data.matchups);
-                    json_response[graph_name] = parallel_coordinates_data;
-                    break;
-                default:
-                    console.warn(`Unknown graph type: ${request_data.type}`);
+            case 'timeseries':
+                // Call the function to handle timeseries graph
+                let timeseries_data = timeseriesWinrates(grouped_decklists);
+                json_response[graph_name] = timeseries_data;
+                break;
+            case 'parallel_coordinates':
+                // Call the function to handle parallel coordinates graph
+                let parallel_coordinates_data = parallelMatchups(grouped_decklists, request_data.matchups);
+                json_response[graph_name] = parallel_coordinates_data;
+                break;
+            case 'scatter_plot':
+                // Call the function to handle scatter plot graph
+                let scatter_plot_data = await performUMAP(constructCardMatrix(grouped_decklists));
+                json_response[graph_name] = scatter_plot_data;
+                break;
+            default:
+                console.warn(`Unknown graph type: ${request_data.type}`);
             }
-        });
+        }
         console.log('Finished processing graph requests');
         res.json(json_response);
     } catch (error) {
@@ -385,22 +420,23 @@ app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
 
-app.get('/api/decklists/cardMatrix', (req, res) => {
+app.get('/api/decklists/cardMatrix', async (req, res) => {
     try {
         console.log('GET /api/decklists/cardMatrix - Request received');
-        const criteria =  { Rank: { precision: 'IS', value: 1 } };
+        const criteria =  { Rank: { precision: 'RANGE', value: {"min": 1, "max": 8} } };
 
         // Filter decklists based on the criteria
         let filtered = filterDecklists(decklists, criteria);
 
-        console.log(`Filtered decklists: ${JSON.stringify(filtered)}`);
+        //console.log(`Filtered decklists: ${JSON.stringify(filtered)}`);
 
         // Construct the card matrix from the filtered decklists
         const cardMatrix = constructCardMatrix(filtered);
+        const umap_result = await performUMAP(cardMatrix);
 
-        // Send the card matrix as the response
-        res.json(cardMatrix);
-        console.log('Response sent with card matrix');
+        // Send the UMAP result as the response
+        res.json(umap_result);
+        console.log('Response sent with UMAP result');
     } catch (error) {
         console.error('Error in /api/decklists/cardMatrix:', error.message);
         res.status(500).json({ error: error.message });

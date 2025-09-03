@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack",
-    "server" : "node src/server.mjs"
+    "server": "node src/server.mjs"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +14,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "d3": "^7.9.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "umap-js": "^1.4.0"
   },
   "devDependencies": {
     "webpack": "^5.101.3",

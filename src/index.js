@@ -816,6 +816,225 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   console.log("Parallel coordinates graph drawn successfully.");
 }
 
+let scatter_updated = false;
+
+export function scatterPlotGraph(name_of_element, graph_data, active = true) {
+  console.log("Drawing scatter plot with data:", graph_data);
+
+  // Set the dimensions and margins of the graph
+  const margin = {top: 10, right: 0, bottom: 30, left: 0},
+    width = 460 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+  const button_height = 20;
+  const button_margin = 5;
+  // Set the height and ensure alignment of the HTML element
+  d3.select(name_of_element)
+      .style("height", `${height + margin.top + margin.bottom}px`)
+      .style("display", "inline-block")
+      .style("vertical-align", "top");
+
+  // Add a button to fetch scatter plot data
+  const fetchScatterPlotBtn = document.createElement('button');
+  fetchScatterPlotBtn.textContent = 'Update Scatter Plot Data';
+  fetchScatterPlotBtn.style.height = `${button_height}px`;
+  fetchScatterPlotBtn.style.margin = `${button_margin}px`;
+  fetchScatterPlotBtn.id = 'update-scatter-plot-btn';
+  fetchScatterPlotBtn.style.display = 'block';
+  document.querySelector(name_of_element).appendChild(fetchScatterPlotBtn);
+
+  // Add fetch button listener
+  fetchScatterPlotBtn.addEventListener('click', async () => {
+    try {
+      console.log("Fetching scatter plot data...");
+      const json_body = {
+        filters: all_criterias.filters,
+        groups: all_criterias.groups,
+        graphs: {
+          scatter_plot_card_presence: all_criterias.graphs.scatter_plot_card_presence ? all_criterias.graphs.scatter_plot_card_presence : { "type": "scatter_plot" }
+        }
+      };
+      console.log("Sending request with body:", json_body);
+
+      // Helper function to show a rotating loading indicator
+      function showLoadingIndicator(parentElement) {
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'loading-indicator';
+        loadingIndicator.style.border = '4px solid #f3f3f3';
+        loadingIndicator.style.borderTop = '4px solid #3498db';
+        loadingIndicator.style.borderRadius = '50%';
+        loadingIndicator.style.width = '30px';
+        loadingIndicator.style.height = '30px';
+        loadingIndicator.style.animation = 'spin 1s linear infinite';
+        loadingIndicator.style.margin = '10px auto';
+        loadingIndicator.style.display = 'block';
+        parentElement.appendChild(loadingIndicator);
+
+        // Add CSS for the spinning animation if not already added
+        if (!document.querySelector('style#loading-indicator-style')) {
+          const style = document.createElement('style');
+          style.id = 'loading-indicator-style';
+          style.innerHTML = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+          `;
+          document.head.appendChild(style);
+        }
+
+        return loadingIndicator;
+      }
+
+      // Show loading indicator
+      const loadingIndicator = showLoadingIndicator(document.querySelector(name_of_element));
+      let response = null;
+      let scatterData = null;
+      try {
+        response = await fetch('http://localhost:3000/api/decklists/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(json_body)
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch scatter plot data. Status: ${response.status}, Status Text: ${response.statusText}`);
+        }
+
+        scatterData = await response.json();
+        console.log("Fetched scatter plot data successfully:", scatterData);
+
+        // Clear previous scatter plot visualization
+        d3.select(name_of_element).html("");
+
+        // Redraw scatter plot with the new data
+        scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+      } catch (error) {
+        console.error("Error fetching scatter plot data:", error);
+      } finally {
+        // Remove the loading indicator
+        loadingIndicator.remove();
+      }
+      // Clear previous scatter plot visualization
+      d3.select(name_of_element).html("");
+
+      // Redraw scatter plot with the new data
+      scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+    } catch (error) {
+      console.error("Error fetching scatter plot data:", error);
+    }
+  });
+
+  /*
+  active = true;
+  graph_data = {
+    Metadata: {
+      min_x: 0,
+      max_x: 50,
+      min_y: 0,
+      max_y: 50,
+      x_label: "X-Axis Label",
+      y_label: "Y-Axis Label"
+    },
+    data: [
+      [[10, 20],
+      [15, 25],
+      [20, 30],
+      [25, 35],
+      [30, 40]]
+    ]
+  }
+  */
+
+  if (active) {
+
+    // Append the svg object to the specified element
+    const svg_height = height + margin.top + margin.bottom - button_height - button_margin * 2
+    const svg = d3.select(name_of_element)
+      .append("svg")
+      .attr("width", width - margin.left - margin.right)
+      .attr("height", svg_height)
+
+    scatter_updated = true;
+
+    // Extract metadata and remove it from the data object
+    const metadata = graph_data.Metadata;
+    //delete data.Metadata;
+    const data = graph_data.data;
+
+    const graph_margins = 5;
+
+    // Set up the X axis
+    const x = d3.scaleLinear()
+      .domain([metadata.min_x, metadata.max_x])
+      .range([graph_margins * 2, width - margin.right - margin.left - graph_margins*2]);
+    svg.append("g")
+      .attr("transform", `translate(${0},${svg_height - graph_margins})`)
+      .call(d3.axisBottom(x)
+      .tickSize(0)
+      .tickFormat(''));
+      /*
+      .append("text")
+      .attr("x", width / 2)
+      .attr("y", 40)
+      .attr("fill", "black")
+      .style("text-anchor", "middle")
+      .text(metadata.x_label);
+      */
+
+    // Set up the Y axis
+    const y = d3.scaleLinear()
+      .domain([metadata.min_y, metadata.max_y])
+      .range([svg_height - graph_margins * 4, 0]);
+    svg.append("g")
+      .attr("transform", `translate(${graph_margins*2},${graph_margins*3})`)
+      .call(d3.axisLeft(y)
+      .tickSize(0)
+      .tickFormat(''));
+      /*
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -svg_height / 2)
+      .attr("y", -40)
+      .attr("fill", "black")
+      .style("text-anchor", "middle")
+      .text(metadata.y_label);
+      */
+
+    // Add points
+    svg.selectAll(`scatter-circle`)
+    .data(data)
+    .enter()
+    .append("circle")
+    .attr("cx", d => x(d[0]))
+    .attr("cy", d => y(d[1]))
+    .attr("r", 5)
+    .attr("transform", `translate(0,${graph_margins*3})`)
+    /*
+    .attr("fill", color(group))
+    .on("mouseover", function (event, d) {
+      d3.select(this).attr("fill", "red");
+      tooltip
+        .style("display", "block")
+        .html(`Group: ${group}<br>${metadata.x_label}: ${d.x}<br>${metadata.y_label}: ${d.y}`)
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 28) + "px");
+    })
+    .on("mousemove", function (event) {
+      tooltip
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 28) + "px");
+    })
+    .on("mouseout", function () {
+      d3.select(this).attr("fill", color(group));
+      tooltip.style("display", "none");
+    });
+    */
+  }
+
+  console.log("Scatter plot drawn successfully.");
+}
+
 const graphs_filters = {};
 
 export async function getDataAndUpdateViz(){
@@ -839,6 +1058,13 @@ export async function getDataAndUpdateViz(){
         graphs_filters["parallel_coordinates_matchups"] = {};
       }
       parallelCoordinatesGraph("#parallel_coordinates_viz", data["parallel_coordinates_matchups"], graphs_filters["parallel_coordinates_matchups"]);
+      d3.select("#scatter_plot_viz").html(""); // Clear previous scatter plot visualization if present
+      if (data["scatter_plot_card_presence"]) {
+        d3.select("#scatter_plot_viz").html(""); // Clear previous scatter plot visualization if present
+        scatterPlotGraph("#scatter_plot_viz", data["scatter_plot_card_presence"]);
+      } else {
+        scatterPlotGraph("#scatter_plot_viz", null, false);
+      }
     }
   } catch (error) {
     console.error("Error processing form submission:", error);
@@ -890,6 +1116,12 @@ export async function restartViz(){
           "type": "parallel_coordinates",
           "matchups": all_criterias["matchups"]
         }
+        /*
+        ,
+        "scatter_plot_card_presence": {
+          "type": "scatter_plot"
+        }
+        */
       }
     };
   
@@ -902,6 +1134,7 @@ export async function restartViz(){
     
   try {
     await getDataAndUpdateViz();
+    d3.select("#scatter_plot_viz").html(""); // Clear previous scatter plot visualization if present
   } catch (error) {
     console.error("Error processing form submission:", error);
   }
@@ -915,3 +1148,33 @@ restartViz();
 
 // Aggiungi il primo form all'avvio
 createForm();
+
+/*
+const unified_filters = {};
+      Object.entries(all_criterias.groups).forEach(([group_key, group]) => {
+        Object.entries(group.filter).forEach(([key, value]) => {
+          if (!unified_filters[key]) {
+            unified_filters[key] = value;
+          } else {
+            // Merge filters if necessary
+            if (unified_filters[key].precision === "IS"){
+              unified_filters[key].precision = "IS-IN";
+              unified_filters[key].value = [unified_filters[key].value, value];
+            } else if (unified_filters[key].precision === "IS-IN") {
+              unified_filters[key].value.push(value);
+            } else if (unified_filters[key].precision === "DATE") {
+              const newMinDate = new Date(Math.min(new Date(unified_filters[key].value.min), new Date(value.value.min)));
+              const newMaxDate = new Date(Math.max(new Date(unified_filters[key].value.max), new Date(value.value.max)));
+              unified_filters[key].value = { min: newMinDate.toISOString(), max: newMaxDate.toISOString() };
+            } else if (unified_filters[key].precision === "RANGE") {
+                unified_filters[key].value = {
+                min: Math.min(unified_filters[key].value.min, value.value.min),
+                max: Math.max(unified_filters[key].value.max, value.value.max)
+              };
+            } else if (unified_filters[key].precision === "COMPOUND") {
+              unified_filters[key].value = [unified_filters[key].value, value];
+            }
+          }
+        });
+      });
+*/
