@@ -33841,12 +33841,12 @@ function createForm() {
           Dynamic
         </label>
         <br><br>
-        <label>Rank Range:</label><br>
-          <input type="range" name="rank-min" min="0" max="100" value="1" style="width: 120px;" oninput="this.nextElementSibling.textContent = this.value"> 
-          <span>1</span>
+        <label>Rank Range: <span id="rank-help-span" title="Rank 513 means that the player has dropped the tournament">ℹ️</span></label><br>
+          <input type="number" name="rank-min" min="1" max="513" value="1" style="width: 60px;" oninput="this.nextElementSibling.value = this.value"> 
+          <input type="range" name="rank-min" min="1" max="513" value="1" style="width: 120px;" oninput="this.previousElementSibling.value = this.value"> 
           <br>to<br>
-          <input type="range" name="rank-max" min="0" max="100" value="512" style="width: 120px;" oninput="this.nextElementSibling.textContent = this.value"> 
-          <span>512</span>
+          <input type="number" name="rank-max" min="1" max="513" value="512" style="width: 60px;" oninput="this.nextElementSibling.value = this.value"> 
+          <input type="range" name="rank-max" min="1" max="513" value="512" style="width: 120px;" oninput="this.previousElementSibling.value = this.value"> 
         <br><br>
       </div>
       
@@ -33878,27 +33878,60 @@ function createForm() {
         <br>
         <input type="datetime-local" name="end-date" value="${new Date().toISOString().slice(0, 16)}" required>
         <br><br>
+        <div id="decklists-analyzed-count-group-${group_index}">n/d</div>
         <button type="button" class="remove-form">❌ Remove Decklist Group</button>
       </div>
     </div>
     </fieldset>
   `;
 
+  // Add hover tooltip
+  const rankHelpSpan = formDiv.querySelector('#rank-help-span');
+  rankHelpSpan.addEventListener('mouseover', (event) => {
+    tooltip
+      .style("display", "block")
+      .html(`Rank 513 means that the player has dropped the tournament`)
+      .style("left", (event.pageX + 10) + "px")
+      .style("top", (event.pageY - 28) + "px");
+  });
+  rankHelpSpan.addEventListener("mousemove", function(event) {
+        tooltip
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 28) + "px");
+      })
+  rankHelpSpan.addEventListener("mouseout", function() {
+        tooltip.style("display", "none")
+      });
+
   // Add listeners to update all_criterias when values change
   const groupNameInput = formDiv.querySelector('input[name="group-name"]');
   function updateGroupName() {
     formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    let newGroupName = groupNameInput.value.trim().replace(",", ' ').replace(/[^a-zA-Z0-9-_]/g, ''); // Sanitize input by trimming whitespace and removing special characters
+    console.log("New Group Name:", newGroupName, "<formId>", formId);
+
+    // Check for duplicates in all_criterias.groups
+    if (Object.keys(all_criterias.groups).includes(newGroupName)) {
+      const randomSuffix = Math.random().toString(36).substring(2, 6); // Generate a random short string
+      newGroupName = `${newGroupName}_${randomSuffix}`;
+      groupNameInput.value = newGroupName; // Update the input field with the new unique name
+    }
+
     const old_name = all_criterias.group_form_names[formId - 1];
-    all_criterias.group_form_names[formId - 1] = groupNameInput.value; // Update the corresponding value
-    if (old_name !== groupNameInput.value) {
-      all_criterias.groups[groupNameInput.value] = all_criterias.groups[old_name];
+    all_criterias.group_form_names[formId - 1] = newGroupName; // Update the corresponding value
+
+    if (old_name !== newGroupName) {
+      all_criterias.groups[newGroupName] = all_criterias.groups[old_name];
       delete all_criterias.groups[old_name];
     }
+
+    return newGroupName;
   }
   groupNameInput.addEventListener('input', () => {
     formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
-    updateGroupName();
+    const newGroupName = updateGroupName();
+    formDiv.querySelector('input[name="group-name"]').value = newGroupName;
     getDataAndUpdateViz();
   });
 
@@ -33930,8 +33963,17 @@ function createForm() {
           ? selectedHeroes[0]
           : selectedHeroes.map(hero => hero.slice(0, 3)).join("-");
 
+        let newGroupName = new_name.trim().replace(/[^a-zA-Z0-9-_ ]/g, ''); // Sanitize input by removing special characters but keep whitespaces
+        // Check for duplicates in all_criterias.groups
+        if (Object.keys(all_criterias.groups).includes(newGroupName)) {
+          const randomSuffix = Math.random().toString(36).substring(2, 6); // Generate a random short string
+          newGroupName = `${newGroupName}_${randomSuffix}`;
+        }
+        console.log("New Group Name:", newGroupName, "Would be name:", new_name);
+        formDiv.querySelector('input[name="group-name"]').value = newGroupName;
+
         const old_name = all_criterias.group_form_names[formId - 1];
-        groupNameInput.value = new_name;
+        groupNameInput.value = newGroupName;
         all_criterias.group_form_names[formId - 1] = groupNameInput.value; // Update the corresponding value
         if (old_name !== groupNameInput.value) {
           all_criterias.groups[groupNameInput.value] = all_criterias.groups[old_name];
@@ -34176,7 +34218,7 @@ function timeseriesGraph(name_of_element, data) {
   Object.entries(data).forEach(([group, group_data]) => {
   // Add the line
     svg.append("path")
-      .attr("id", `timeseries-line-${group}`)
+      .attr("id", `timeseries-line-${group.replaceAll(" ", "")}`)
       .datum(group_data)
       .attr("fill", "none")
       .attr("stroke", color(group))
@@ -34187,11 +34229,11 @@ function timeseriesGraph(name_of_element, data) {
       );
 
     // Add hoverable points
-    svg.selectAll(`timeseries-circle.group-${group}`)
+    svg.selectAll(`timeseries-circle.group-${group.replaceAll(" ", "")}`)
       .data(group_data)
       .enter()
       .append("circle")
-        .attr("class", `group-${group}`)
+        .attr("class", `group-${group.replaceAll(" ", "")}`)
         .attr("cx", d => x(d.date))
         .attr("cy", d => y(d.winrate.winrate))
         .attr("r", 5)
@@ -34465,7 +34507,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
     
     // Draw the lines
     svg.append("path")
-      .attr("id", `parallel-graph-line-${group}`)
+      .attr("id", `parallel-graph-line-${group.replaceAll(" ", "")}`)
       .datum(group_data)
       .style("fill", "none")
       .style("stroke", color(group))
@@ -34476,11 +34518,11 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       );
 
     // Add hoverable points
-    svg.selectAll(`parallel-circle.group-${group}`)
+    svg.selectAll(`parallel-circle.group-${group.replaceAll(" ", "")}`)
       .data(group_data)
       .enter()
       .append("circle")
-        .attr("class", `group-${group}`)
+        .attr("class", `group-${group.replaceAll(" ", "")}`)
         .attr("cx", d => x(d["hero"]))
         .attr("cy", d => y(d.winrate))
         .attr("r", 5)
@@ -34538,11 +34580,11 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       }
 
       // Group for the axis
-      const axisGroup = svg.append("g").attr("class", `filter-squares-${dim}`);
+      const axisGroup = svg.append("g").attr("class", `filter-squares-${dim.replaceAll(" ", "")}`);
 
       // Top square (max)
       axisGroup.append("rect")
-        .attr("class", `filter-square filter-square-top axis-${dim}`)
+        .attr("class", `filter-square filter-square-top axis-${dim.replaceAll(" ", "")}`)
         .attr("x", x(dim) - 4)
         .attr("y", yMax)
         .attr("width", 8)
@@ -34567,7 +34609,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
 
       // Bottom square (min)
       axisGroup.append("rect")
-        .attr("class", `filter-square filter-square-bottom axis-${dim}`)
+        .attr("class", `filter-square filter-square-bottom axis-${dim.replaceAll(" ", "")}`)
         .attr("x", x(dim) - 4)
         .attr("y", yMin)
         .attr("width", 8)
@@ -34823,6 +34865,7 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
     .attr("cy", d => y(d[1]))
     .attr("r", 5)
     .attr("transform", `translate(0,${graph_margins*3})`)
+    .attr("class", d => `scatter-circle group-${d[2].group.replaceAll(" ", "")}`)
     .attr("fill", d => color(d[2].group))
     .on("mouseover", function (event, d) {
       d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("fill", "red");
@@ -34861,6 +34904,16 @@ async function getDataAndUpdateViz(){
         .domain(Object.values(all_criterias["group_form_names"]))
         .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
       setLegend(Object.values(all_criterias["group_form_names"]));
+      // adjust count display
+      data.grouped_decklists_count.forEach( ([group, count]) => {
+        const groupIndex = Object.keys(all_criterias["group_form_names"]).find(key => all_criterias["group_form_names"][key] === group)[0];
+        console.log(`Updating count for group ${group} (index ${groupIndex}): ${count}`); 
+        const countElement = document.getElementById(`decklists-analyzed-count-group-${groupIndex}`);
+        if (countElement) {
+          countElement.textContent = `Decklists Analyzed: ${count}`;
+        }
+      });
+
       // Draw the graphs
       console.log("Drawing graphs...");
       d3__WEBPACK_IMPORTED_MODULE_0__.select("#timeseries_viz").html(""); // Clear previous timeseries visualization if present

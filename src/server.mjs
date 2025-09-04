@@ -403,7 +403,9 @@ app.post('/api/decklists/calculate', async (req, res) => {
         console.log('Graph requests:', graph_requests);
         const filtered = filterDecklists(decklists, filterCriteria);
         let grouped_decklists = groupDecklists(filtered, groupCriteria);
-        let json_response = {};
+        let json_response = {
+            "grouped_decklists_count": Object.entries(grouped_decklists).map(([group, lists]) => [group, lists.length])
+        };
         for (const [graph_name, request_data] of Object.entries(graph_requests)) {
             console.log(`Processing ${graph_name} with data:`, request_data);
             // Here you would call the appropriate function to handle each graph type

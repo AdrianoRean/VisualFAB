@@ -43,19 +43,13 @@ if __name__ == "__main__":
         json.dump(unified_decklist, output_file, indent=4)'''
         
     # Load the decklists from the JSON file
-    with open("src/decklists.json", "r", encoding="utf-8") as file:
+    with open("src/decklists_date copy.json", "r", encoding="utf-8") as file:
         decklists = json.load(file)
 
     # Convert the "Date" field in "Metadata" to datetime format
     for decklist in decklists:
-        metadata = decklist.get("Metadata", {})
-        date_str = metadata.get("Date", None)
-        if date_str:
-            try:
-                # Assuming the date format is "Mon. DD, YYYY" (e.g., "Jun. 28, 2025")
-                metadata["Date"] = datetime.strptime(date_str, "%b. %d, %Y")
-            except ValueError as e:
-                print(f"Error parsing date '{date_str}': {e}")
+        if decklist["Metadata"].get("Rank") == -1:
+            decklist["Metadata"]["Rank"] = 513
 
     # Save the updated decklists back to the JSON file
     with open("src/decklists_date.json", "w", encoding="utf-8") as file:
