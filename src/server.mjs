@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import { readFile } from 'fs/promises';
 import { UMAP } from 'umap-js';
+import { writeFile, readFile } from 'fs/promises';
+import path from 'path';
 
 const app = express();
 const PORT = 3000;
@@ -442,25 +443,90 @@ app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
 
-app.get('/api/decklists/cardMatrix', async (req, res) => {
+const searchFilePath = path.join('search', 'searches.json');
+
+// Helper function to load searches from file
+async function loadSearches() {
     try {
-        console.log('GET /api/decklists/cardMatrix - Request received');
-        const criteria =  { Rank: { precision: 'RANGE', value: {"min": 1, "max": 8} } };
-
-        // Filter decklists based on the criteria
-        let filtered = filterDecklists(decklists, criteria);
-
-        //console.log(`Filtered decklists: ${JSON.stringify(filtered)}`);
-
-        // Construct the card matrix from the filtered decklists
-        const cardMatrix = constructCardMatrix(filtered);
-        const umap_result = await performUMAP(cardMatrix);
-
-        // Send the UMAP result as the response
-        res.json(umap_result);
-        console.log('Response sent with UMAP result');
+        const data = await readFile(searchFilePath, 'utf-8');
+        return JSON.parse(data);
     } catch (error) {
-        console.error('Error in /api/decklists/cardMatrix:', error.message);
+        if (error.code === 'ENOENT') {
+            console.log('Search file not found, initializing empty search list');
+            return [];
+        } else {
+            throw error;
+        }
+    }
+}
+
+// Helper function to save searches to file
+async function saveSearches(searches, newSearch) {
+    try {
+        if (searches.some(search => search.search_name === newSearch.search_name)) {
+            throw new Error('A search with the same name already exists');
+        }
+        searches.push(newSearch);
+        await writeFile(searchFilePath, JSON.stringify(searches, null, 2), 'utf-8');
+        console.log('Searches saved successfully');
+    } catch (error) {
+        console.error('Error saving searches:', error.message);
+        throw error;
+    }
+}
+
+// API to load a specific search by name
+app.get('/api/decklists/search/load', async (req, res) => {
+    try {
+        console.log('GET /api/decklists/search/load - Request received');
+        const searchName = req.query.search_name;
+        console.log('Search name:', searchName);
+
+        const searches = await loadSearches();
+        const search = searches.find(s => s.search_name === searchName);
+        console.log('Found search:', search);
+
+        if (search) {
+            res.json(search);
+            console.log('Response sent with search:', search);
+        } else {
+            res.status(404).json({ error: 'Search not found' });
+            console.log('Search not found');
+        }
+    } catch (error) {
+        console.error('Error in /api/decklists/search/load:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to save a new search
+app.post('/api/decklists/search/save', async (req, res) => {
+    try {
+        console.log('POST /api/decklists/search/save - Request received');
+        const newSearch = req.body;
+        console.log('New search:', newSearch);
+
+        const searches = await loadSearches();
+        await saveSearches(searches, newSearch);
+
+        res.status(201).json({ message: 'Search saved successfully' });
+        console.log('New search saved');
+    } catch (error) {
+        console.error('Error in /api/decklists/search/save:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to get the list of search names
+app.get('/api/decklists/search/names', async (req, res) => {
+    try {
+        console.log('GET /api/decklists/search/names - Request received');
+        const searches = await loadSearches();
+        const searchNames = searches.map(s => s.search_name);
+        res.json(searchNames);
+        console.log('Response sent with search names:', searchNames);
+    } catch (error) {
+        console.error('Error in /api/decklists/search/names:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

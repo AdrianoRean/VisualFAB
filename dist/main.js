@@ -33764,6 +33764,7 @@ __webpack_require__.r(__webpack_exports__);
 __webpack_require__.a(module, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   addAndUpdateForms: () => (/* binding */ addAndUpdateForms),
 /* harmony export */   adjustGroupFilters: () => (/* binding */ adjustGroupFilters),
 /* harmony export */   createForm: () => (/* binding */ createForm),
 /* harmony export */   fetchDecklists: () => (/* binding */ fetchDecklists),
@@ -33773,6 +33774,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   restartViz: () => (/* binding */ restartViz),
 /* harmony export */   scatterPlotGraph: () => (/* binding */ scatterPlotGraph),
 /* harmony export */   setLegend: () => (/* binding */ setLegend),
+/* harmony export */   setupLoadSearchListener: () => (/* binding */ setupLoadSearchListener),
 /* harmony export */   timeseriesGraph: () => (/* binding */ timeseriesGraph)
 /* harmony export */ });
 /* harmony import */ var d3__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js");
@@ -33780,7 +33782,7 @@ __webpack_require__.r(__webpack_exports__);
 
 let form_heroes, form_formats;
 
-const all_criterias = {
+let all_criterias = {
   "filters": {},
   "group_form_names": {},
   "groups": {},
@@ -33818,9 +33820,10 @@ const submitAllBtn = document.getElementById('submit-all');
 // Funzione per creare un nuovo form dinamico
 let group_index = 0;
 
-function createForm() {
+function createForm(existingGroupName = null) {
   group_index++;
-  all_criterias["group_form_names"][group_index - 1] = `Group_${group_index}`;
+  const groupName = existingGroupName || `Group_${group_index}`;
+  all_criterias["group_form_names"][group_index - 1] = groupName;
   const formDiv = document.createElement('form');
   formDiv.id = `group-form-${group_index}`;
   formDiv.style.border = "1px solid black";
@@ -33829,7 +33832,7 @@ function createForm() {
 
   formDiv.innerHTML = `
     <fieldset>
-    <legend>Decklist Group_${group_index}
+    <legend>${groupName}
       <button type="button" class="toggle-form">🔽 Hide</button>
     </legend>
     <div class="form-content-container" style="display: flex; gap: 20px;">
@@ -34062,6 +34065,15 @@ function createForm() {
     formDiv.remove();
   });
 
+  // Update form
+  if (existingGroupName) {
+    updateGroupName();
+    updateRankRange();
+    updateHeroSelection();
+    updateFormatSelection();
+    updateDateRange();
+  }
+
   formsContainer.appendChild(formDiv);
 
   // Adjust group filtering
@@ -34084,8 +34096,21 @@ function createForm() {
   getDataAndUpdateViz();
 }
 
+function addAndUpdateForms(){
+  // Clear existing forms
+  formsContainer.innerHTML = "";
+  Object.keys(all_criterias.group_form_names).forEach((groupIndex) => {
+    const numericGroupIndex = parseInt(groupIndex, 10); // Ensure groupIndex is treated as a number
+    const existingForm = document.getElementById(`group-form-${numericGroupIndex + 1}`);
+    if (!existingForm) {
+      console.log("Re-adding form for group index:", numericGroupIndex);
+      createForm(all_criterias.group_form_names[numericGroupIndex]);
+    }
+  });
+}
+
 // Listener per aggiungere un nuovo form
-addFormBtn.addEventListener('click', createForm);
+addFormBtn.addEventListener('click', () => createForm());
 
 // Add this once, outside drawViz
 const tooltip = d3__WEBPACK_IMPORTED_MODULE_0__.select("body")
@@ -35008,10 +35033,120 @@ submitAllBtn.addEventListener('click', async () => {
   restartViz();
 });
 
+// Load search listener
+const searchList = document.getElementById('search-list');
+
+async function loadSearchNames() {
+  try {
+    const response = await fetch('http://localhost:3000/api/decklists/search/names', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch search names. Status: ${response.status}, ${response.statusText}`);
+    }
+
+    const searchNames = await response.json();
+    console.log("Fetched search names successfully:", searchNames);
+
+    // Populate the search list dropdown
+    searchList.innerHTML = searchNames.map(name => `<option value="${name}">${name}</option>`).join('');
+  } catch (error) {
+    console.error("Error fetching search names:", error);
+    alert("Failed to fetch search names. Check the console for more details.");
+  }
+}
+
+loadSearchNames();
+
+function setupLoadSearchListener() {
+  const loadSearchBtn = document.getElementById('load-search');
+
+  loadSearchBtn.addEventListener('click', async () => {
+    const searchName = document.getElementById('search-list').value;
+    if (!searchName) {
+      alert("Search name cannot be empty.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/decklists/search/load?search_name=${encodeURIComponent(searchName)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load search. Status: ${response.status}, ${response.statusText}`);
+      }
+
+      const loadedSearch = await response.json();
+      console.log("Loaded search successfully:", loadedSearch);
+
+      // Update all_criterias with the loaded search data
+      all_criterias.group_form_names = loadedSearch.all_criterias.group_form_names || {};
+      all_criterias.filters = loadedSearch.all_criterias.filters || {};
+      all_criterias.groups = loadedSearch.all_criterias.groups || {};
+      all_criterias.graphs = loadedSearch.all_criterias.graphs || {};
+
+      console.log("Updated all_criterias:", all_criterias);
+
+      addAndUpdateForms();
+      getDataAndUpdateViz();
+    } catch (error) {
+      console.error("Error loading search:", error);
+      alert("Failed to load the search. Check the console for more details.");
+    }
+  });
+}
+
+setupLoadSearchListener();
+
+function setupSaveSearchListener() {
+  const saveSearchBtn = document.getElementById('save-search');
+
+  saveSearchBtn.addEventListener('click', async () => {
+    const searchName = document.getElementById('search-name').value.trim();
+    if (!searchName) {
+      alert("Search name cannot be empty.");
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/api/decklists/search/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ search_name: searchName, all_criterias })
+      });
+
+      if (!response.ok) {
+        let responseBody;
+        try {
+          responseBody = await response.json();
+        } catch (error) {
+          responseBody = { error: "Failed to parse error response" };
+        }
+        alert(`Failed to save search. Status: ${response.status}, ${response.statusText}. Error: ${responseBody.error}`);
+        throw new Error(`Failed to save search. Status: ${response.status}, ${response.statusText}, ${responseBody.error}`);
+      }
+
+      const result = await response.json();
+      console.log("Search saved successfully:", result);
+      alert("Search saved successfully.");
+    } catch (error) {
+      console.error("Error saving search:", error);
+    }
+  });
+}
+
+setupSaveSearchListener();
+
 restartViz();
 
 // Aggiungi il primo form all'avvio
-createForm();
+if (Object.keys(all_criterias.group_form_names).length === 0) {
+  createForm();
+}
 
 /*
 const unified_filters = {};
