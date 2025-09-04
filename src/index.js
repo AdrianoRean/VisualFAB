@@ -1128,10 +1128,9 @@ export async function getDataAndUpdateViz(){
       setLegend(Object.values(all_criterias["group_form_names"]));
       // adjust count display
       data.grouped_decklists_count.forEach( ([group, count]) => {
-        //fix it
         const groupIndex = Object.keys(all_criterias["group_form_names"]).find(key => all_criterias["group_form_names"][key] === group);
-        console.log(`Updating count for group ${group} (index ${groupIndex}): ${count}`); 
-        const countElement = document.getElementById(`decklists-analyzed-count-group-${groupIndex}`);
+        console.log(`Updating count for group ${group}, index ${parseInt(groupIndex[0]) + 1}, ${count}`);
+        const countElement = document.getElementById(`decklists-analyzed-count-group-${parseInt(groupIndex[0]) + 1}`);
         if (countElement) {
           countElement.textContent = `Decklists Analyzed: ${count}`;
         }
