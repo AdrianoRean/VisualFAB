@@ -3,6 +3,7 @@ import cors from 'cors';
 import { UMAP } from 'umap-js';
 import { writeFile, readFile } from 'fs/promises';
 import path from 'path';
+import { match } from 'assert';
 
 const app = express();
 const PORT = 3000;
@@ -17,7 +18,7 @@ const data = await readFile(decklists_file, 'utf-8');
 const decklists = JSON.parse(data);
 console.log(`Loaded ${decklists.length} decklists`);
 
-function filterDecklists(decklists, criteria) {
+function filterDecklists(decklists, criteria, decksToCompare = []) {
     console.log('Filtering decklists with criteria:', criteria);
     const filtered = decklists.filter(decklist => {
         return Object.entries(criteria).every(([key, value]) => {
@@ -39,10 +40,20 @@ function filterDecklists(decklists, criteria) {
                         let played = 0;
                         let wins = 0;
                         decklist["Classic Constructed Matchups"].forEach(round => {
-                            if (round["Opponent Hero"] === matchup){
-                                played += 1;
-                                if (round["Result"] === "W") {
-                                    wins += 1;
+                            if (values.type === "selection") {
+                                const opponentDeck = decksToCompare.includes(round["Opponent Deck ID"]);
+                                if (opponentDeck) {
+                                    played += 1;
+                                    if (round["Result"] === "W") {
+                                        wins += 1;
+                                    }
+                                }
+                            } else if (values.type === "hero") {
+                                if (round["Opponent Hero"] === matchup){
+                                    played += 1;
+                                    if (round["Result"] === "W") {
+                                        wins += 1;
+                                    }
                                 }
                             }
                         });
@@ -197,7 +208,7 @@ function timeseriesWinrates(grouped_decklists) {
     }
 };
 
-function parallelMatchups(grouped_decklists, matchups_array) {
+function parallelMatchups(grouped_decklists, matchups_array, decklistsToCompare={}) {
     try{
         // Implementation for parallelMatchups
         //console.log('Grouped decklists:', grouped_decklists);
@@ -221,38 +232,55 @@ function parallelMatchups(grouped_decklists, matchups_array) {
             }
         });
         */
-    const matchups = matchups_array ? matchups_array.map(matchup => matchup.name) : [];
     let grouped_matchup_winrates = {};
-        let heroes = [];
-        if (Array.isArray(matchups) && matchups.length > 0) {
+        matchups_array.forEach(matchup => {
+            console.log("Processing matchup:", matchup);
             Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
                 console.log(`Processing group "${group_name}"`);
-                // Implement the logic for each group
                 const matchupStats = {};
-                let monikers = {};
 
                 for (const decklist of decklists) {
                     const played_matchups = decklist["Classic Constructed Matchups"];
                     for (const round of played_matchups) {
-                        const hero = round["Opponent Hero"];
-                        if (!matchups.some(moniker => hero.includes(moniker))) {
-                            continue;
-                        } else if (!matchupStats[hero]) {
-                            if (!heroes.includes(hero)) {
-                            heroes.push(hero);
+
+                        if (matchup.type === "selection") {
+                            const opponentID = round["Opponent Deck ID"];
+                            if (!decklistsToCompare[matchup.name].includes(opponentID)) {
+                                continue;
+                            } else {
+                                if (!matchupStats[matchup.name]) {
+                                    matchupStats[matchup.name] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
+                                }
+                                matchupStats[matchup.name].played += 1;
+                                if (round["Result"] === "W") {
+                                    matchupStats[matchup.name].wins += 1;
+                                } else if (round["Result"] === "L") {
+                                    matchupStats[matchup.name].losses += 1;
+                                } else if (round["Result"] === "D") {
+                                    matchupStats[matchup.name].draws += 1;
+                                } else {
+                                    matchupStats[matchup.name].double_losses += 1;
+                                }
                             }
-                            monikers[hero] = matchups.find(moniker => hero.includes(moniker));
-                            matchupStats[hero] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
-                        }
-                        matchupStats[hero].played += 1;
-                        if (round["Result"] === "W") {
-                            matchupStats[hero].wins += 1;
-                        } else if (round["Result"] === "L") {
-                            matchupStats[hero].losses += 1;
-                        } else if (round["Result"] === "D") {
-                            matchupStats[hero].draws += 1;
-                        } else {
-                            matchupStats[hero].double_losses += 1;
+                        } else if (matchup.type === "hero") {
+                            const opponentHero = round["Opponent Hero"];
+                            if (opponentHero !== matchup.name) {
+                                continue;
+                            } else {
+                                if (!matchupStats[opponentHero]) {
+                                    matchupStats[opponentHero] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
+                                }
+                                matchupStats[opponentHero].played += 1;
+                                if (round["Result"] === "W") {
+                                    matchupStats[opponentHero].wins += 1;
+                                } else if (round["Result"] === "L") {
+                                    matchupStats[opponentHero].losses += 1;
+                                } else if (round["Result"] === "D") {
+                                    matchupStats[opponentHero].draws += 1;
+                                } else {
+                                    matchupStats[opponentHero].double_losses += 1;
+                                }
+                            }
                         }
                     }
                 }
@@ -260,17 +288,17 @@ function parallelMatchups(grouped_decklists, matchups_array) {
                 console.log(`Processed ${decklists.length} decklists for group "${group_name}"`);
 
                 const matchupWinrates = [];
-                for (const [hero, stats] of Object.entries(matchupStats)) {
+                for (const [matchup_name, stats] of Object.entries(matchupStats)) {
                     const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
                     const playedRounds = stats.played;
-                    matchupWinrates.push({ "hero": hero, winrate, playedRounds});
-                    console.log(`Hero: ${hero}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
+                    matchupWinrates.push({ "matchup": matchup_name, winrate, playedRounds});
+                    console.log(`Matchup: ${matchup_name}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
                 }
                 grouped_matchup_winrates[group_name] = matchupWinrates;
             });
-        }
+        });
         console.log('Finished calculating matchup winrates for all groups');
-        grouped_matchup_winrates["Dimensions"] = heroes.sort();
+        grouped_matchup_winrates["Dimensions"] = Object.values(matchups_array).map(matchup => matchup.name).sort();
         return grouped_matchup_winrates;
     } catch (error) {
         console.error('Error in /api/decklists/winrate:', error.message);
@@ -395,6 +423,70 @@ async function saveSearches(searches, newSearch) {
     }
 }
 
+async function deleteSearch(search_name) {
+    try {
+        const data = await readFile(searchFilePath, 'utf-8');
+        const searches = JSON.parse(data);
+        const updatedSearches = searches.filter(search => search.search_name !== search_name);
+        await writeFile(searchFilePath, JSON.stringify(updatedSearches, null, 2), 'utf-8');
+        console.log(`Search "${search_name}" deleted successfully`);
+    } catch (error) {
+        console.error('Error deleting search:', error.message);
+        throw error;
+    }
+}
+
+const selectionFilePath = path.join('selections', 'selections.json');
+
+async function saveSelections(selections, newSelection) {
+    try {
+        if (selections.some(selection => selection.name === newSelection.name)) {
+            throw new Error('A selection with the same name already exists');
+        }
+        selections.push(newSelection);
+        await writeFile(selectionFilePath, JSON.stringify(selections, null, 2), 'utf-8');
+        console.log('Selections saved successfully');
+    } catch (error) {
+        console.error('Error saving selections:', error.message);
+        throw error;
+    }
+}
+
+async function loadSelectionNames() {
+    try {
+        const data = await readFile(selectionFilePath, 'utf-8');
+        const selections = JSON.parse(data);
+        return selections.map(selection => selection.name);
+    } catch (error) {
+        console.error('Error loading selections:', error.message);
+        throw error;
+    }
+}
+
+async function loadSelection(selection_name) {
+    try {
+        const data = await readFile(selectionFilePath, 'utf-8');
+        const selections = JSON.parse(data);
+        return selections.find(selection => selection.name === selection_name);
+    } catch (error) {
+        console.error('Error retrieving selection:', error.message);
+        throw error;
+    }
+}
+
+async function deleteSelection(selection_name) {
+    try {
+        const data = await readFile(selectionFilePath, 'utf-8');
+        const selections = JSON.parse(data);
+        const updatedSelections = selections.filter(selection => selection.name !== selection_name);
+        await writeFile(selectionFilePath, JSON.stringify(updatedSelections, null, 2), 'utf-8');
+        console.log(`Selection "${selection_name}" deleted successfully`);
+    } catch (error) {
+        console.error('Error deleting selection:', error.message);
+        throw error;
+    }
+}
+
 // Serve default index.html
 app.get('/', (req, res) => {
     console.log('Serving index.html');
@@ -434,7 +526,16 @@ app.post('/api/decklists/calculate', async (req, res) => {
         console.log('Filter criteria:', filterCriteria);
         console.log('Group criteria:', groupCriteria);
         console.log('Graph requests:', graph_requests);
-        const filtered = filterDecklists(decklists, filterCriteria);
+        const decksToCompare = {};
+        if (graph_requests["parallel_coordinates_matchups"].selections) {
+            for (const selection_name of Object.values(graph_requests["parallel_coordinates_matchups"].selections)) {
+                const selection = await loadSelection(selection_name);
+                const selection_decklists = filterDecklists(decklists, selection.filter);
+                decksToCompare[selection_name] = selection_decklists.map(dl => dl["Metadata"]["List Id"]);
+            }
+        }
+        const streamlinedDecksToCompare = decksToCompare ? Object.values(decksToCompare).flat() : [];
+        const filtered = filterDecklists(decklists, filterCriteria, streamlinedDecksToCompare);
         let grouped_decklists = groupDecklists(filtered, groupCriteria);
         let json_response = {
             "grouped_decklists_count": Object.entries(grouped_decklists).map(([group, lists]) => [group, lists.length])
@@ -527,6 +628,87 @@ app.get('/api/decklists/search/names', async (req, res) => {
         console.log('Response sent with search names:', searchNames);
     } catch (error) {
         console.error('Error in /api/decklists/search/names:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/decklists/search/delete', async (req, res) => {
+    try {
+        console.log('DELETE /api/decklists/search/delete - Request received');
+        const searchName = req.query.search_name;
+        console.log('Search name to delete:', searchName);
+
+        await deleteSearch(searchName);
+        res.status(204).send();
+        console.log('Search deleted successfully');
+    } catch (error) {
+        console.error('Error in /api/decklists/search/delete:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to save a new selection
+app.post('/api/decklists/selection/save', async (req, res) => {
+    try {
+        console.log('POST /api/decklists/selection/save - Request received');
+        const newSelection = req.body;
+        console.log('New selection:', newSelection);
+
+        const selections = await loadSelections();
+        await saveSelections(selections, newSelection);
+
+        res.status(201).json({ message: 'Selection saved successfully' });
+        console.log('New selection saved');
+    } catch (error) {
+        console.error('Error in /api/decklists/selection/save:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to get the list of selection names
+app.get('/api/decklists/selection/names', async (req, res) => {
+    try {
+        console.log('GET /api/decklists/selection/names - Request received');
+        const selectionNames = await loadSelectionNames();
+        res.json(selectionNames);
+        console.log('Response sent with selection names:', selectionNames);
+    } catch (error) {
+        console.error('Error in /api/decklists/selection/names:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to load a specific selection by name
+app.get('/api/decklists/selection/load', async (req, res) => {
+    try {
+        console.log('GET /api/decklists/selection/load - Request received');
+        const selectionName = req.query.selection_name;
+        console.log('Selection name:', selectionName);
+
+        const selection = await loadSelection(selectionName);
+        if (selection) {
+            res.json(selection);
+            console.log('Response sent with selection:', selection);
+        } else {
+            res.status(404).json({ error: 'Selection not found' });
+            console.log('Selection not found');
+        }
+    } catch (error) {
+        console.error('Error in /api/decklists/selection/load:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/decklists/selection/delete', async (req, res) => {
+    try {
+        console.log('DELETE /api/decklists/selection/delete - Request received');
+        const selectionName = req.query.selection_name;
+        console.log('Selection name to delete:', selectionName);
+        await deleteSelection(selectionName);
+        res.status(204).send();
+        console.log('Selection deleted successfully');
+    } catch (error) {
+        console.error('Error in /api/decklists/selection/delete:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

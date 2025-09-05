@@ -1,6 +1,8 @@
 import * as d3 from "d3";
 
 let form_heroes, form_formats;
+let selections_names = [];
+let selections = {};
 
 let all_criterias = {
   "filters": {},
@@ -109,6 +111,8 @@ export function createForm(existingGroupName = null) {
         <input type="datetime-local" name="end-date" value="${new Date().toISOString().slice(0, 16)}" required>
         <br><br>
         <div id="decklists-analyzed-count-group-${g_index}">n/d</div>
+        <button type="button" class="save-form-as-selection">Save Decklists Group as Selection ℹ️</button>
+        <br>
         <button type="button" class="remove-form">❌ Remove Decklist Group</button>
       </div>
     </div>
@@ -287,6 +291,41 @@ export function createForm(existingGroupName = null) {
     });
   });
 
+  // Add listener to save the group as selection
+  formDiv.querySelector('.save-form-as-selection').addEventListener('click', async () => {
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const groupName = all_criterias.group_form_names[formId];
+    if (!groupName) {
+      alert("Group name is missing. Cannot save the group as a selection.");
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/api/decklists/selection/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: groupName, filter: all_criterias.groups[groupName] })
+      });
+
+      if (!response.ok) {
+        let responseBody;
+        try {
+          responseBody = await response.json();
+        } catch (error) {
+          responseBody = { error: "Failed to parse error response" };
+        }
+        alert(`Failed to save search. Status: ${response.status}, ${response.statusText}. Error: ${responseBody.error}`);
+        throw new Error(`Failed to save search. Status: ${response.status}, ${response.statusText}, ${responseBody.error}`);
+      }
+
+      const result = await response.json();
+      console.log("Group saved as selection successfully:", result);
+      alert(`Group "${groupName}" saved as a selection successfully.`);
+    } catch (error) {
+      console.error("Error saving group as selection:", error);
+    }
+  });
+
   // Add listener to the remove button
   formDiv.querySelector('.remove-form').addEventListener('click', () => {
     formDiv.remove();
@@ -316,7 +355,7 @@ export function createForm(existingGroupName = null) {
     all_criterias.groups[all_criterias.group_form_names[formId]].filter["Matchups Winrate"] = {
       precision: "COMPOUND",
       value: all_criterias.graphs["parallel_coordinates_matchups"].matchups.reduce((acc, matchup) => {
-      acc[matchup.name] = { min: matchup.range.min, max: matchup.range.max };
+      acc[matchup.name] = { type: matchup.type, min: matchup.range.min, max: matchup.range.max };
       return acc;
       }, {})
     };
@@ -556,6 +595,7 @@ export function adjustGroupFilters(data, dim, this_graph_filters){
     } else {
       all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({
         name: dim,
+        type: selections_names.includes(dim) ? "selection" : "hero",
         range: this_graph_filters[dim]
       });
     }
@@ -617,18 +657,19 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
     matchupPopup.innerHTML = `
       <h3>Add Matchups</h3>
       <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
+      ${selections_names.map(selection => `
+          <label style="background-color:${color(selection)}">
+            <input type="checkbox" class="matchup-checkbox" id="matchup-input-${selection}" value="${selection}">
+            Group: ${selection}
+          </label><br>
+        `).join('')}
         ${form_heroes.map(hero => `
           <label>
             <input type="checkbox" class="matchup-checkbox" value="${hero}">
             ${hero}
           </label><br>
         `).join('')}
-        ${Object.values(all_criterias.group_form_names).map(group => `
-          <label>
-            <input type="checkbox" class="matchup-checkbox" value="${group}">
-            ${group}
-          </label><br>
-        `).join('')}
+        
       </div>
       <br>
       <button id="matchup-popup-submit">Submit</button>
@@ -678,24 +719,53 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
           if (matchupsFilter && matchupsFilter.precision === "COMPOUND") {
             Object.keys(matchupsFilter.value).forEach(matchup => {
               if (!selected_matchups.includes(matchup)) {
-          delete matchupsFilter.value[matchup];
+                delete matchupsFilter.value[matchup];
               }
             });
           }
         });
 
-        // Add new matchups for selected heroes
-        selected_matchups.forEach(hero => {
+        // Add new matchups for selected matchups
+        selected_matchups.forEach(matchup => {
           if (!all_criterias.graphs["parallel_coordinates_matchups"].matchups) {
             all_criterias.graphs["parallel_coordinates_matchups"].matchups = [];
           }
-          if (!all_criterias.graphs["parallel_coordinates_matchups"].matchups.some(matchup => matchup.name === hero)) {
-            all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: hero, range: { min: 0, max: 100 } });
+          if (!all_criterias.graphs["parallel_coordinates_matchups"].matchups.some(m => m.name === matchup)) {
+            if (selections_names.includes(matchup)) {
+              all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: matchup, type: "selection", range: { min: 0, max: 100 } });
+            }else {
+              all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: matchup, type: "hero", range: { min: 0, max: 100 } });
+            }
           }
         });
 
+        //Add hover to selection options
+        // Add hover tooltip for selection options
+        const selectionLabels = matchupPopup.querySelectorAll('label');
+        selectionLabels.forEach(label => {
+          label.addEventListener('mouseover', (event) => {
+            const selection_info = selections[label.textContent.trim()] ? selections[label.textContent.trim()] : loadSelection(label.textContent.trim());
+            selections[label.textContent.trim()] = selection_info; // Cache the loaded selection info
+            let info_html = `Selection: ${label.textContent.trim()}`;
+            tooltip
+              .style("display", "block")
+              .html(info_html)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 28) + "px");
+          });
+          label.addEventListener("mousemove", function(event) {
+            tooltip
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 28) + "px");
+          });
+          label.addEventListener("mouseout", function() {
+            tooltip.style("display", "none");
+          });
+        });
+
         console.log('Matchups added:', selected_matchups);
-         await getDataAndUpdateViz();      }
+         await getDataAndUpdateViz();      
+        }
 
       matchupPopup.style.display = 'none';
     });
@@ -1195,9 +1265,9 @@ export async function getDataAndUpdateViz(){
 
       // color palette
       color = d3.scaleOrdinal()
-        .domain(Object.values(all_criterias["group_form_names"]))
-        .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
-      setLegend(Object.values(all_criterias["group_form_names"]));
+        .domain(Object.values(all_criterias["group_form_names"]).concat(selections_names ? selections_names : []))
+        .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']);
+      setLegend(Object.values(all_criterias["group_form_names"]).concat(selections ? Object.keys(selections) : []));
       // adjust count display
       console.log("data is:", JSON.parse(JSON.stringify(data)));
       console.log("all criteria:", JSON.parse(JSON.stringify(all_criterias)));
@@ -1274,7 +1344,7 @@ export async function restartViz(){
         },
         "parallel_coordinates_matchups": {
           "type": "parallel_coordinates",
-          "matchups": all_criterias["matchups"]
+          "matchups": []
         }
         /*
         ,
@@ -1321,7 +1391,52 @@ async function loadSearchNames() {
     console.log("Fetched search names successfully:", searchNames);
 
     // Populate the search list dropdown
-    searchList.innerHTML = searchNames.map(name => `<option value="${name}">${name}</option>`).join('');
+    searchList.innerHTML = searchNames.map(name => `
+      <option value="${name}">
+      ${name}
+      <button class="delete-search-button" id="delete-search-button-${name}">❌</button>
+      </option>
+    `).join('');
+
+    // Add event listeners for delete buttons
+    const deleteButtons = document.querySelectorAll('.delete-search-button');
+    deleteButtons.forEach(button => {
+      button.addEventListener('click', async (event) => {
+      event.stopPropagation(); // Prevent the dropdown from opening
+      const searchName = button.id.replace('delete-search-button-', '');
+      if (!searchName) {
+        alert("Search name cannot be empty.");
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to delete the search "${searchName}"?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:3000/api/decklists/search/delete?search_name=${encodeURIComponent(searchName)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+        throw new Error(`Failed to delete search. Status: ${response.status}, ${response.statusText}`);
+        }
+
+        console.log(`Search "${searchName}" deleted successfully.`);
+        alert(`Search "${searchName}" deleted successfully.`);
+
+        // Remove the option from the dropdown
+        const optionToRemove = document.querySelector(`option[value="${searchName}"]`);
+        if (optionToRemove) {
+        optionToRemove.remove();
+        }
+      } catch (error) {
+        console.error("Error deleting search:", error);
+        alert("Failed to delete the search. Check the console for more details.");
+      }
+      });
+    });
   } catch (error) {
     console.error("Error fetching search names:", error);
     alert("Failed to fetch search names. Check the console for more details.");
@@ -1372,7 +1487,7 @@ export function setupLoadSearchListener() {
 
 setupLoadSearchListener();
 
-function setupSaveSearchListener() {
+export function setupSaveSearchListener() {
   const saveSearchBtn = document.getElementById('save-search');
 
   saveSearchBtn.addEventListener('click', async () => {
@@ -1410,6 +1525,43 @@ function setupSaveSearchListener() {
 }
 
 setupSaveSearchListener();
+
+export async function loadSelectionNames() {
+  try{
+    const response = await fetch('http://localhost:3000/api/decklists/selection/names', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to fetch selection names. Status: ${response.status}, ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching selection names:", error);
+    return [];
+  }
+  
+}
+
+selections_names = await loadSelectionNames();
+
+console.log("Available selection names:", selections_names);
+
+export async function loadSelection(selection_name) {
+  try{
+    const response = await fetch(`http://localhost:3000/api/decklists/selection/load?selection_name=${encodeURIComponent(selection_name)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to fetch selection. Status: ${response.status}, ${response.statusText}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching selection:", error);
+    return null;
+  }
+}
 
 // Aggiungi il primo form all'avvio
 if (Object.keys(all_criterias.group_form_names).length === 0) {

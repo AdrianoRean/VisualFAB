@@ -1,0 +1,13 @@
+[
+    {
+        "name": "Dorinthea Ironsong",
+        "filter": {
+            "Hero": {
+              "precision": "IS-IN",
+              "value": [
+                "Dorinthea Ironsong"
+              ]
+            }
+          }
+        }
+]
