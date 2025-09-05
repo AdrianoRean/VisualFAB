@@ -22,35 +22,6 @@
     }
   },
   {
-    "search_name": "Arakni Total",
-    "all_criterias": {
-      "filters": {},
-      "group_form_names": {
-        "0": "Arakni 5Lp3d 7hRu 7h3 cR4X"
-      },
-      "groups": {
-        "Arakni 5Lp3d 7hRu 7h3 cR4X": {
-          "filter": {
-            "Hero": {
-              "precision": "IS-IN",
-              "value": [
-                "Arakni, 5L!p3d 7hRu 7h3 cR4X"
-              ]
-            }
-          }
-        }
-      },
-      "graphs": {
-        "timeseries_winrates": {
-          "type": "timeseries"
-        },
-        "parallel_coordinates_matchups": {
-          "type": "parallel_coordinates"
-        }
-      }
-    }
-  },
-  {
     "search_name": "Dori Hatchets to Kassai",
     "all_criterias": {
       "filters": {},
@@ -76,36 +47,6 @@
               "value": [
                 "Kassai of the Golden Sand"
               ]
-            }
-          }
-        }
-      },
-      "graphs": {
-        "timeseries_winrates": {
-          "type": "timeseries"
-        },
-        "parallel_coordinates_matchups": {
-          "type": "parallel_coordinates"
-        }
-      }
-    }
-  },
-  {
-    "search_name": "pippo",
-    "all_criterias": {
-      "filters": {},
-      "group_form_names": {
-        "0": "Group_1"
-      },
-      "groups": {
-        "Group_1": {
-          "filter": {
-            "Rank": {
-              "precision": "RANGE",
-              "value": {
-                "min": "1",
-                "max": "162"
-              }
             }
           }
         }

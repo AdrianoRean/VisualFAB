@@ -363,6 +363,38 @@ async function performUMAP(decklistsMatrix) {
     };
 }
 
+const searchFilePath = path.join('search', 'searches.json');
+
+// Helper function to load searches from file
+async function loadSearches() {
+    try {
+        const data = await readFile(searchFilePath, 'utf-8');
+        return JSON.parse(data);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.log('Search file not found, initializing empty search list');
+            return [];
+        } else {
+            throw error;
+        }
+    }
+}
+
+// Helper function to save searches to file
+async function saveSearches(searches, newSearch) {
+    try {
+        if (searches.some(search => search.search_name === newSearch.search_name)) {
+            throw new Error('A search with the same name already exists');
+        }
+        searches.push(newSearch);
+        await writeFile(searchFilePath, JSON.stringify(searches, null, 2), 'utf-8');
+        console.log('Searches saved successfully');
+    } catch (error) {
+        console.error('Error saving searches:', error.message);
+        throw error;
+    }
+}
+
 // Serve default index.html
 app.get('/', (req, res) => {
     console.log('Serving index.html');
@@ -442,38 +474,6 @@ app.post('/api/decklists/calculate', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
-const searchFilePath = path.join('search', 'searches.json');
-
-// Helper function to load searches from file
-async function loadSearches() {
-    try {
-        const data = await readFile(searchFilePath, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.log('Search file not found, initializing empty search list');
-            return [];
-        } else {
-            throw error;
-        }
-    }
-}
-
-// Helper function to save searches to file
-async function saveSearches(searches, newSearch) {
-    try {
-        if (searches.some(search => search.search_name === newSearch.search_name)) {
-            throw new Error('A search with the same name already exists');
-        }
-        searches.push(newSearch);
-        await writeFile(searchFilePath, JSON.stringify(searches, null, 2), 'utf-8');
-        console.log('Searches saved successfully');
-    } catch (error) {
-        console.error('Error saving searches:', error.message);
-        throw error;
-    }
-}
 
 // API to load a specific search by name
 app.get('/api/decklists/search/load', async (req, res) => {
