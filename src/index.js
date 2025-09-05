@@ -41,11 +41,18 @@ const submitAllBtn = document.getElementById('submit-all');
 let group_index = 0;
 
 export function createForm(existingGroupName = null) {
-  group_index++;
-  const groupName = existingGroupName || `Group_${group_index}`;
-  all_criterias["group_form_names"][group_index - 1] = groupName;
+  let groupName;
+  let g_index;
+  if (existingGroupName !== null){
+    groupName = existingGroupName;
+    g_index = Object.keys(all_criterias.group_form_names).find(key => all_criterias.group_form_names[key] === existingGroupName);
+  } else {
+    groupName = `Group_${group_index}`;
+    all_criterias["group_form_names"][group_index] = groupName;
+    g_index = group_index;
+  }
   const formDiv = document.createElement('form');
-  formDiv.id = `group-form-${group_index}`;
+  formDiv.id = `group-form-${g_index}`;
   formDiv.style.border = "1px solid black";
   formDiv.style.margin = "10px";
   formDiv.classList.add('form-container');
@@ -58,7 +65,7 @@ export function createForm(existingGroupName = null) {
     <div class="form-content-container" style="display: flex; gap: 20px;">
       <div class="form-section">
         <label>Group Name:</label><br>
-        <input type="text" name="group-name" value="Group_${group_index}" required>
+        <input type="text" name="group-name" value="Group_${g_index}" required>
         <label>
           <br><input type="checkbox" name="dynamic-group-name" checked>
           Dynamic
@@ -101,7 +108,7 @@ export function createForm(existingGroupName = null) {
         <br>
         <input type="datetime-local" name="end-date" value="${new Date().toISOString().slice(0, 16)}" required>
         <br><br>
-        <div id="decklists-analyzed-count-group-${group_index}">n/d</div>
+        <div id="decklists-analyzed-count-group-${g_index}">n/d</div>
         <button type="button" class="remove-form">❌ Remove Decklist Group</button>
       </div>
     </div>
@@ -141,8 +148,8 @@ export function createForm(existingGroupName = null) {
       groupNameInput.value = newGroupName; // Update the input field with the new unique name
     }
 
-    const old_name = all_criterias.group_form_names[formId - 1];
-    all_criterias.group_form_names[formId - 1] = newGroupName; // Update the corresponding value
+    const old_name = all_criterias.group_form_names[formId];
+    all_criterias.group_form_names[formId] = newGroupName; // Update the corresponding value
 
     if (old_name !== newGroupName) {
       all_criterias.groups[newGroupName] = all_criterias.groups[old_name];
@@ -151,26 +158,26 @@ export function createForm(existingGroupName = null) {
 
     return newGroupName;
   }
-  groupNameInput.addEventListener('input', () => {
+  groupNameInput.addEventListener('input', async () => {
     formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
     const newGroupName = updateGroupName();
     formDiv.querySelector('input[name="group-name"]').value = newGroupName;
-    getDataAndUpdateViz();
-  });
+     await getDataAndUpdateViz();  
+    });
 
   const rankInputs = formDiv.querySelectorAll('input[name="rank-min"], input[name="rank-max"]');
   function updateRankRange() {
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
     const rankMin = formDiv.querySelector('input[name="rank-min"]').value;
     const rankMax = formDiv.querySelector('input[name="rank-max"]').value;
-    all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || { filter: {} };
-    all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Rank = { precision: "RANGE", value: { min: rankMin, max: rankMax } };
+    all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || { filter: {} };
+    all_criterias.groups[all_criterias.group_form_names[formId]].filter.Rank = { precision: "RANGE", value: { min: rankMin, max: rankMax } };
   }
   rankInputs.forEach(input => {
-    input.addEventListener('input', () => {
+    input.addEventListener('input', async () => {
       updateRankRange();
-      getDataAndUpdateViz();
-    });
+       await getDataAndUpdateViz();    
+      });
   });
 
   const heroCheckboxes = formDiv.querySelectorAll('input[name="heroes"]');
@@ -195,9 +202,9 @@ export function createForm(existingGroupName = null) {
         console.log("New Group Name:", newGroupName, "Would be name:", new_name);
         formDiv.querySelector('input[name="group-name"]').value = newGroupName;
 
-        const old_name = all_criterias.group_form_names[formId - 1];
+        const old_name = all_criterias.group_form_names[formId];
         groupNameInput.value = newGroupName;
-        all_criterias.group_form_names[formId - 1] = groupNameInput.value; // Update the corresponding value
+        all_criterias.group_form_names[formId] = groupNameInput.value; // Update the corresponding value
         if (old_name !== groupNameInput.value) {
           all_criterias.groups[groupNameInput.value] = all_criterias.groups[old_name];
           delete all_criterias.groups[old_name];
@@ -207,29 +214,29 @@ export function createForm(existingGroupName = null) {
       const selectedHeroes = Array.from(heroCheckboxes)
         .filter(cb => cb.checked)
         .map(cb => cb.value);
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {"filter": {}};
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Hero = { precision: "IS-IN", value: selectedHeroes };
+      all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || {"filter": {}};
+      all_criterias.groups[all_criterias.group_form_names[formId]].filter.Hero = { precision: "IS-IN", value: selectedHeroes };
       console.log("Changing!");
   }
   heroCheckboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', () => {
+    checkbox.addEventListener('change', async () => {
       updateHeroSelection();
-      getDataAndUpdateViz();
-    });
+       await getDataAndUpdateViz();    
+      });
   });
 
   const formatRadios = formDiv.querySelectorAll('input[name="format"]');
   function updateFormatSelection() {
       const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
       const selectedFormat = formDiv.querySelector('input[name="format"]:checked').value;
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {filter : {}};
-      all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Format = { precision: "IS", value: selectedFormat };
+      all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || {filter : {}};
+      all_criterias.groups[all_criterias.group_form_names[formId]].filter.Format = { precision: "IS", value: selectedFormat };
   }
   formatRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
+    radio.addEventListener('change', async () => {
       updateFormatSelection();
-      getDataAndUpdateViz();
-    });
+       await getDataAndUpdateViz();    
+      });
   });
 
   const startDateInput = formDiv.querySelector('input[name="start-date"]');
@@ -238,14 +245,14 @@ export function createForm(existingGroupName = null) {
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
     const startDate = startDateInput.value;
     const endDate = endDateInput.value;
-    all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {filter : {}};
-    all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter.Date = { precision: "DATE", value: { min: startDate, max: endDate } }
+    all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || {filter : {}};
+    all_criterias.groups[all_criterias.group_form_names[formId]].filter.Date = { precision: "DATE", value: { min: startDate, max: endDate } }
   };
   [startDateInput, endDateInput].forEach(input => {
-    input.addEventListener('change', () => {
+    input.addEventListener('change', async () => {
       updateDateRange();
-      getDataAndUpdateViz();
-    });
+       await getDataAndUpdateViz();    
+      });
   });
 
   // Add toggle functionality for hiding/showing the form content
@@ -286,6 +293,7 @@ export function createForm(existingGroupName = null) {
   });
 
   // Update form
+  /*
   if (existingGroupName) {
     updateGroupName();
     updateRankRange();
@@ -293,19 +301,19 @@ export function createForm(existingGroupName = null) {
     updateFormatSelection();
     updateDateRange();
   }
+    */
 
   formsContainer.appendChild(formDiv);
 
   // Adjust group filtering
-  const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
-  all_criterias.groups[all_criterias.group_form_names[formId - 1]] = all_criterias.groups[all_criterias.group_form_names[formId - 1]] || {filter : {}};
+  //all_criterias.groups[all_criterias.group_form_names[g_index]] = all_criterias.groups[all_criterias.group_form_names[g_index - 1]] || {filter : {}};
   //updateGroupName();
   //updateHeroSelection();
   //updateFormatSelection(); 
   //updateDateRange();
   // If there are matchups in all_criterias, add them to the new group
   if (all_criterias.graphs["parallel_coordinates_matchups"]?.matchups) {
-    all_criterias.groups[all_criterias.group_form_names[formId - 1]].filter["Matchups Winrate"] = {
+    all_criterias.groups[all_criterias.group_form_names[formId]].filter["Matchups Winrate"] = {
       precision: "COMPOUND",
       value: all_criterias.graphs["parallel_coordinates_matchups"].matchups.reduce((acc, matchup) => {
       acc[matchup.name] = { min: matchup.range.min, max: matchup.range.max };
@@ -313,7 +321,8 @@ export function createForm(existingGroupName = null) {
       }, {})
     };
   }
-  getDataAndUpdateViz();
+  // await getDataAndUpdateViz();  
+  group_index++;
 }
 
 export function addAndUpdateForms(){
@@ -321,12 +330,43 @@ export function addAndUpdateForms(){
   formsContainer.innerHTML = "";
   Object.keys(all_criterias.group_form_names).forEach((groupIndex) => {
     const numericGroupIndex = parseInt(groupIndex, 10); // Ensure groupIndex is treated as a number
-    const existingForm = document.getElementById(`group-form-${numericGroupIndex + 1}`);
-    if (!existingForm) {
-      console.log("Re-adding form for group index:", numericGroupIndex);
-      createForm(all_criterias.group_form_names[numericGroupIndex]);
+    console.log("Re-adding form for group index:", numericGroupIndex, "with name:", all_criterias.group_form_names[numericGroupIndex]);
+    const groupName = all_criterias.group_form_names[numericGroupIndex];
+    createForm(groupName);
+    // After creating the form, update its fields based on all_criterias
+    const formDiv = document.getElementById(`group-form-${numericGroupIndex}`);
+    if (formDiv) {
+      // Update the form fields based on all_criterias
+      const groupNameInput = formDiv.querySelector('input[name="group-name"]');
+      groupNameInput.value = groupName;
+      const rankInputs = formDiv.querySelectorAll('input[name="rank-min"], input[name="rank-max"]');
+      if (all_criterias.groups[groupName]?.filter?.Rank) {
+        rankInputs[0].value = all_criterias.groups[groupName].filter.Rank.value.min;
+        rankInputs[1].value = all_criterias.groups[groupName].filter.Rank.value.max;
+      }
+      const heroCheckboxes = formDiv.querySelectorAll('input[name="heroes"]');
+      heroCheckboxes.forEach(checkbox => {
+        if (all_criterias.groups[groupName]?.filter?.Hero?.precision === "IS-IN") {
+          checkbox.checked = all_criterias.groups[groupName]?.filter?.Hero?.value?.includes(checkbox.value) || false;
+        } else if (all_criterias.groups[groupName]?.filter?.Hero?.precision === "IS") {
+          checkbox.checked = all_criterias.groups[groupName]?.filter?.Hero?.value === checkbox.value;
+        }
+      });
+      const formatRadios = formDiv.querySelectorAll('input[name="format"]');
+      formatRadios.forEach(radio => {
+        radio.checked = all_criterias.groups[groupName]?.filter?.Format?.value === radio.value;
+      });
+      const startDateInput = formDiv.querySelector('input[name="start-date"]');
+      if (all_criterias.groups[groupName]?.filter?.Date?.value?.start) {
+        startDateInput.value = all_criterias.groups[groupName].filter.Date.value.start;
+      }
+      const endDateInput = formDiv.querySelector('input[name="end-date"]');
+      if (all_criterias.groups[groupName]?.filter?.Date?.value?.end) {
+        endDateInput.value = all_criterias.groups[groupName].filter.Date.value.end;
+      }
     }
   });
+  console.log("All criterias after re-adding forms:", JSON.parse(JSON.stringify(all_criterias)));
 }
 
 // Listener per aggiungere un nuovo form
@@ -612,7 +652,7 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
       matchupPopup.style.display = 'none';
     });
 
-    matchupPopup.querySelector('#matchup-popup-submit').addEventListener('click', () => {
+    matchupPopup.querySelector('#matchup-popup-submit').addEventListener('click', async () => {
       selected_matchups = Array.from(matchupPopup.querySelectorAll('.matchup-checkbox:checked'))
         .map(checkbox => checkbox.value);
 
@@ -655,8 +695,7 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
         });
 
         console.log('Matchups added:', selected_matchups);
-        getDataAndUpdateViz();
-      }
+         await getDataAndUpdateViz();      }
 
       matchupPopup.style.display = 'none';
     });
@@ -846,10 +885,9 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
               const newMax = y.invert(newY);
               this_graph_filters[dim].max = newMax;
             })
-            .on("end", function() {
+            .on("end", async function() {
               adjustGroupFilters(data, dim, this_graph_filters);
-              getDataAndUpdateViz();
-            })
+               await getDataAndUpdateViz();            })
         );
 
       // Bottom square (min)
@@ -871,10 +909,9 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
               const newMin = y.invert(newY);
               this_graph_filters[dim].min = newMin;
             })
-            .on("end", function() {
+            .on("end", async function() {
               adjustGroupFilters(data, dim, this_graph_filters);
-              getDataAndUpdateViz();
-            })
+               await getDataAndUpdateViz();            })
         );
       });
 
@@ -886,17 +923,24 @@ let scatter_updated = false;
 export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   console.log("Drawing scatter plot with data:", graph_data);
 
+  let scatterPlotDiv = document.querySelector(name_of_element);
   let warningText;
   let fetchScatterPlotBtn;
-  // Set the dimensions and margins of the graph
-  const margin = {top: 10, right: 0, bottom: 30, left: 0},
-    width = 460 - margin.left - margin.right,
-    height = 400 - margin.top - margin.bottom;
 
   const button_height = 20;
   const button_margin = 5;
 
-  if (!document.querySelector(`${name_of_element} #update-scatter-plot-btn`)) {
+  // Set the dimensions and margins of the graph
+  const margin = {top: 10, right: 0, bottom: 30, left: 0},
+    width = 550 - margin.left - margin.right,
+    height = 550 + button_height + button_margin*2 - margin.top - margin.bottom;
+
+  // Set the dimensions of the div container
+  scatterPlotDiv.style.width = `${width + margin.left + margin.right}px`;
+  scatterPlotDiv.style.height = `${height + margin.top + margin.bottom}px`;
+
+  if (!scatterPlotDiv.querySelector(`#update-scatter-plot-btn`)) {
+    console.log("Setting fetch button for scatter plot...");
     // Set the height and ensure alignment of the HTML element
     d3.select(name_of_element)
         .style("height", `${height + margin.top + margin.bottom}px`)
@@ -930,7 +974,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
           tooltip.style("display", "none")
           .style("background-color", "#fff");
         });
-    document.querySelector(name_of_element).appendChild(fetchScatterPlotBtn);
+    scatterPlotDiv.appendChild(fetchScatterPlotBtn);
 
     warningText = document.createElement('div');
     warningText.style.display = scatter_updated ? 'none' : 'inline-block';
@@ -939,7 +983,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     warningText.style.fontWeight = 'bold';
     warningText.style.marginTop = '5px';
     warningText.id = 'scatter-plot-warning';
-    document.querySelector(name_of_element).appendChild(warningText);
+    scatterPlotDiv.appendChild(warningText);
 
     // Add fetch button listener
     fetchScatterPlotBtn.addEventListener('click', async () => {
@@ -964,8 +1008,12 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
           loadingIndicator.style.width = '30px';
           loadingIndicator.style.height = '30px';
           loadingIndicator.style.animation = 'spin 1s linear infinite';
-          loadingIndicator.style.margin = '10px auto';
+          loadingIndicator.style.position = 'absolute';
+          loadingIndicator.style.top = '50%';
+          loadingIndicator.style.left = '50%';
+          loadingIndicator.style.transform = 'translate(-50%, -50%)';
           loadingIndicator.style.display = 'block';
+          parentElement.style.position = 'relative'; // Ensure parent has relative positioning
           parentElement.appendChild(loadingIndicator);
 
           // Add CSS for the spinning animation if not already added
@@ -1131,6 +1179,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     });
   }
 
+    console.log("Scatter plot children are: ", scatterPlotDiv.children);
   console.log("Scatter plot drawn successfully.");
 }
 
@@ -1150,10 +1199,12 @@ export async function getDataAndUpdateViz(){
         .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
       setLegend(Object.values(all_criterias["group_form_names"]));
       // adjust count display
+      console.log("data is:", JSON.parse(JSON.stringify(data)));
+      console.log("all criteria:", JSON.parse(JSON.stringify(all_criterias)));
       data.grouped_decklists_count.forEach( ([group, count]) => {
         const groupIndex = Object.keys(all_criterias["group_form_names"]).find(key => all_criterias["group_form_names"][key] === group);
-        console.log(`Updating count for group ${group}, index ${parseInt(groupIndex[0]) + 1}, ${count}`);
-        const countElement = document.getElementById(`decklists-analyzed-count-group-${parseInt(groupIndex[0]) + 1}`);
+        console.log(`Updating count for group ${group}, index ${parseInt(groupIndex[0])}, ${count}`);
+        const countElement = document.getElementById(`decklists-analyzed-count-group-${parseInt(groupIndex[0])}`);
         if (countElement) {
           countElement.textContent = `Decklists Analyzed: ${count}`;
         }
@@ -1184,18 +1235,17 @@ export async function restartViz(){
   console.log("Form submitted. Processing criteria...");
   const allForms = formsContainer.querySelectorAll('.form-container');
   const groups = {};
-
   allForms.forEach(form => {
     const formData = new FormData(form);
     console.log("Processing form:", formData);
     const group = {};
     const group_name = formData.get('group-name').trim();
 
-    const heroes = formData.getAll('heroes');
-    if (heroes.length > 0){
-      group["Hero"] = {"precision": "IS-IN", "value": heroes};
+    const heroes = Array.from(form.querySelectorAll('input[name="heroes"]:checked')).map(input => input.value);
+    if (heroes.length > 0) {
+      group["Hero"] = { "precision": "IS-IN", "value": heroes };
     }
-    const format = formData.get('format');
+    const format = form.querySelector('input[name="format"]:checked')?.value;
     if (format) {
       group["Format"] = {"precision": "IS", "value": format};
     }
@@ -1204,9 +1254,10 @@ export async function restartViz(){
     if (startDate && endDate) {
       group["Date"] = {"precision": "DATE", "value": { "min": startDate, "max": endDate }};
     }
-    const rank = formData.get('rank');
-    if (rank) {
-      group["Rank"] = {"precision": "RANGE", "value": { "min": rank.min, "max": rank.max }};
+    const rankMin = formData.get('rank-min');
+    const rankMax = formData.get('rank-max');
+    if (rankMin && rankMax) {
+      group["Rank"] = { "precision": "RANGE", "value": { "min": parseInt(rankMin, 10), "max": parseInt(rankMax, 10) } };
     }
     if (Object.keys(group).length > 0) {
       groups[group_name] = {"filter" : group};
@@ -1233,8 +1284,8 @@ export async function restartViz(){
         */
       }
     };
-  
-  console.log("Criteria prepared:", criteria);  
+
+  console.log("Criteria prepared:", JSON.parse(JSON.stringify(criteria)));
   // Store the criteria and filters for future use
   all_criterias["filters"] = criteria.filters;
   all_criterias["groups"] = criteria.groups;
@@ -1243,7 +1294,6 @@ export async function restartViz(){
     
   try {
     await getDataAndUpdateViz();
-    d3.select("#scatter_plot_viz").html(""); // Clear previous scatter plot visualization if present
   } catch (error) {
     console.error("Error processing form submission:", error);
   }
@@ -1301,7 +1351,7 @@ export function setupLoadSearchListener() {
       }
 
       const loadedSearch = await response.json();
-      console.log("Loaded search successfully:", loadedSearch);
+      console.log("Loaded search successfully:", JSON.parse(JSON.stringify(loadedSearch)));
 
       // Update all_criterias with the loaded search data
       all_criterias.group_form_names = loadedSearch.all_criterias.group_form_names || {};
@@ -1309,11 +1359,11 @@ export function setupLoadSearchListener() {
       all_criterias.groups = loadedSearch.all_criterias.groups || {};
       all_criterias.graphs = loadedSearch.all_criterias.graphs || {};
 
-      console.log("Updated all_criterias:", all_criterias);
+      console.log("Updated all_criterias:", JSON.parse(JSON.stringify(all_criterias)));
 
       addAndUpdateForms();
-      getDataAndUpdateViz();
-    } catch (error) {
+      await getDataAndUpdateViz();    
+      } catch (error) {
       console.error("Error loading search:", error);
       alert("Failed to load the search. Check the console for more details.");
     }
@@ -1361,39 +1411,9 @@ function setupSaveSearchListener() {
 
 setupSaveSearchListener();
 
-restartViz();
-
 // Aggiungi il primo form all'avvio
 if (Object.keys(all_criterias.group_form_names).length === 0) {
   createForm();
 }
 
-/*
-const unified_filters = {};
-      Object.entries(all_criterias.groups).forEach(([group_key, group]) => {
-        Object.entries(group.filter).forEach(([key, value]) => {
-          if (!unified_filters[key]) {
-            unified_filters[key] = value;
-          } else {
-            // Merge filters if necessary
-            if (unified_filters[key].precision === "IS"){
-              unified_filters[key].precision = "IS-IN";
-              unified_filters[key].value = [unified_filters[key].value, value];
-            } else if (unified_filters[key].precision === "IS-IN") {
-              unified_filters[key].value.push(value);
-            } else if (unified_filters[key].precision === "DATE") {
-              const newMinDate = new Date(Math.min(new Date(unified_filters[key].value.min), new Date(value.value.min)));
-              const newMaxDate = new Date(Math.max(new Date(unified_filters[key].value.max), new Date(value.value.max)));
-              unified_filters[key].value = { min: newMinDate.toISOString(), max: newMaxDate.toISOString() };
-            } else if (unified_filters[key].precision === "RANGE") {
-                unified_filters[key].value = {
-                min: Math.min(unified_filters[key].value.min, value.value.min),
-                max: Math.max(unified_filters[key].value.max, value.value.max)
-              };
-            } else if (unified_filters[key].precision === "COMPOUND") {
-              unified_filters[key].value = [unified_filters[key].value, value];
-            }
-          }
-        });
-      });
-*/
+restartViz();
