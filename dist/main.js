@@ -33770,9 +33770,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   fetchDecklists: () => (/* binding */ fetchDecklists),
 /* harmony export */   getDataAndUpdateViz: () => (/* binding */ getDataAndUpdateViz),
 /* harmony export */   getFormData: () => (/* binding */ getFormData),
+/* harmony export */   loadAllSelections: () => (/* binding */ loadAllSelections),
 /* harmony export */   loadSelection: () => (/* binding */ loadSelection),
 /* harmony export */   loadSelectionNames: () => (/* binding */ loadSelectionNames),
 /* harmony export */   parallelCoordinatesGraph: () => (/* binding */ parallelCoordinatesGraph),
+/* harmony export */   reloadSearchesSelections: () => (/* binding */ reloadSearchesSelections),
 /* harmony export */   restartViz: () => (/* binding */ restartViz),
 /* harmony export */   scatterPlotGraph: () => (/* binding */ scatterPlotGraph),
 /* harmony export */   setLegend: () => (/* binding */ setLegend),
@@ -33923,13 +33925,16 @@ function createForm(existingGroupName = null) {
   // Add listeners to update all_criterias when values change
   const groupNameInput = formDiv.querySelector('input[name="group-name"]');
   function updateGroupName() {
-    formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
-    let newGroupName = groupNameInput.value.trim().replace(",", ' ').replace(/[^a-zA-Z0-9-_]/g, ''); // Sanitize input by trimming whitespace and removing special characters
+    let newGroupName = groupNameInput.value.replace(",", ' ').replace(/[^a-zA-Z0-9-_ ]/g, ''); // Sanitize input by trimming whitespace and removing special characters
     console.log("New Group Name:", newGroupName, "<formId>", formId);
 
-    // Check for duplicates in all_criterias.groups
-    if (Object.keys(all_criterias.groups).includes(newGroupName)) {
+    // Check for duplicates in all_criterias.groups, excluding the current group
+    const isDuplicate = Object.keys(all_criterias.groups).some(
+      (existingGroupName) => existingGroupName !== all_criterias.group_form_names[formId] && existingGroupName === newGroupName
+    );
+
+    if (isDuplicate) {
       const randomSuffix = Math.random().toString(36).substring(2, 6); // Generate a random short string
       newGroupName = `${newGroupName}_${randomSuffix}`;
       groupNameInput.value = newGroupName; // Update the input field with the new unique name
@@ -34084,10 +34089,13 @@ function createForm(existingGroupName = null) {
     }
 
     try {
+      let json_body = { name: groupName, filter: all_criterias.groups[groupName] };
+      delete json_body.filter;
+      json_body["filter"] = all_criterias.groups[groupName].filter;
       const response = await fetch('http://localhost:3000/api/decklists/selection/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: groupName, filter: all_criterias.groups[groupName] })
+        body: JSON.stringify(json_body)
       });
 
       if (!response.ok) {
@@ -34097,12 +34105,15 @@ function createForm(existingGroupName = null) {
         } catch (error) {
           responseBody = { error: "Failed to parse error response" };
         }
-        alert(`Failed to save search. Status: ${response.status}, ${response.statusText}. Error: ${responseBody.error}`);
-        throw new Error(`Failed to save search. Status: ${response.status}, ${response.statusText}, ${responseBody.error}`);
+        alert(`Failed to save selection. Status: ${response.status}, ${response.statusText}. Error: ${responseBody.error}`);
+        throw new Error(`Failed to save selection. Status: ${response.status}, ${response.statusText}, ${responseBody.error}`);
       }
 
       const result = await response.json();
       console.log("Group saved as selection successfully:", result);
+      await loadSelectionNames(); // Refresh the selection names
+      await loadAllSelections(); // Refresh all selections
+      console.log("Selection refreshed successfully.");
       alert(`Group "${groupName}" saved as a selection successfully.`);
     } catch (error) {
       console.error("Error saving group as selection:", error);
@@ -34242,7 +34253,7 @@ function setLegend(group_names) {
   const legend = d3__WEBPACK_IMPORTED_MODULE_0__.select("body").append("div")
     .attr("id", "legend")
     .style("position", "absolute")
-    .style("top", "20px")
+    .style("top", "70px")
     .style("right", "20px")
     .style("background", "rgba(230, 230, 230, 0.9)")
     .style("border", "2px solid #333")
@@ -34527,9 +34538,12 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
         const selectionLabels = matchupPopup.querySelectorAll('label');
         selectionLabels.forEach(label => {
           label.addEventListener('mouseover', (event) => {
-            const selection_info = selections[label.textContent.trim()] ? selections[label.textContent.trim()] : loadSelection(label.textContent.trim());
-            selections[label.textContent.trim()] = selection_info; // Cache the loaded selection info
+            const selection_data = selections[label.textContent.trim()] ? selections[label.textContent.trim()] : loadSelection(label.textContent.trim());
+            selections[label.textContent.trim()] = selection_data;
             let info_html = `Selection: ${label.textContent.trim()}`;
+            info_html += `<br>N. Decklists: ${selection_data.n_decklists}`;
+            info_html += `<br>Date: ${selection_data.date}`;
+            info_html += `<br>Filter: ${selection_data.filter}`;
             tooltip
               .style("display", "block")
               .html(info_html)
@@ -34831,7 +34845,7 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
 
     warningText = document.createElement('div');
     warningText.style.display = scatter_updated ? 'none' : 'inline-block';
-    warningText.textContent = 'PLOT NOT REFLECTING ACTUAL SELECTIONS';
+    warningText.textContent = 'PLOT NOT REFLECTING ACTUAL GROUPS';
     warningText.style.color = 'red';
     warningText.style.fontWeight = 'bold';
     warningText.style.marginTop = '5px';
@@ -34928,7 +34942,7 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
   if (!scatter_updated) {
     console.log("Scatter plot not updated.");
     warningText = d3__WEBPACK_IMPORTED_MODULE_0__.select(`#scatter-plot-warning`);
-    warningText.text('PLOT NOT REFLECTING ACTUAL SELECTIONS')
+    warningText.text('PLOT NOT REFLECTING ACTUAL GROUPS')
       .style('color', 'red')
       .style('font-weight', 'bold')
       .style('margin-top', '5px')
@@ -35054,6 +35068,7 @@ async function getDataAndUpdateViz(){
       // adjust count display
       console.log("data is:", JSON.parse(JSON.stringify(data)));
       console.log("all criteria:", JSON.parse(JSON.stringify(all_criterias)));
+      console.log("selections:", JSON.parse(JSON.stringify(selections)));
       data.grouped_decklists_count.forEach( ([group, count]) => {
         const groupIndex = Object.keys(all_criterias["group_form_names"]).find(key => all_criterias["group_form_names"][key] === group);
         console.log(`Updating count for group ${group}, index ${parseInt(groupIndex[0])}, ${count}`);
@@ -35174,30 +35189,30 @@ async function loadSearchNames() {
     console.log("Fetched search names successfully:", searchNames);
 
     // Populate the search list dropdown
+    searchList.innerHTML = ''; // Clear existing options
     searchList.innerHTML = searchNames.map(name => `
       <option value="${name}">
       ${name}
-      <button class="delete-search-button" id="delete-search-button-${name}">❌</button>
       </option>
     `).join('');
 
-    // Add event listeners for delete buttons
-    const deleteButtons = document.querySelectorAll('.delete-search-button');
-    deleteButtons.forEach(button => {
-      button.addEventListener('click', async (event) => {
+    // Add event listeners for delete button
+    const deleteButton = document.getElementById('delete-search');
+    deleteButton.addEventListener('click', async (event) => {
       event.stopPropagation(); // Prevent the dropdown from opening
-      const searchName = button.id.replace('delete-search-button-', '');
-      if (!searchName) {
-        alert("Search name cannot be empty.");
+      const selectedOption = document.querySelector('#search-list').value;
+      console.log("Currently selected search:", selectedOption);
+      if (!selectedOption) {
+        alert("Search cannot be empty.");
         return;
       }
 
-      if (!confirm(`Are you sure you want to delete the search "${searchName}"?`)) {
+      if (!confirm(`Are you sure you want to delete the search "${selectedOption}"?`)) {
         return;
       }
 
       try {
-        const response = await fetch(`http://localhost:3000/api/decklists/search/delete?search_name=${encodeURIComponent(searchName)}`, {
+        const response = await fetch(`http://localhost:3000/api/decklists/search/delete?search_name=${encodeURIComponent(selectedOption)}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
         });
@@ -35206,11 +35221,11 @@ async function loadSearchNames() {
         throw new Error(`Failed to delete search. Status: ${response.status}, ${response.statusText}`);
         }
 
-        console.log(`Search "${searchName}" deleted successfully.`);
-        alert(`Search "${searchName}" deleted successfully.`);
+        console.log(`Search "${selectedOption}" deleted successfully.`);
+        alert(`Search "${selectedOption}" deleted successfully.`);
 
         // Remove the option from the dropdown
-        const optionToRemove = document.querySelector(`option[value="${searchName}"]`);
+        const optionToRemove = document.querySelector(`option[value="${selectedOption}"]`);
         if (optionToRemove) {
         optionToRemove.remove();
         }
@@ -35218,8 +35233,9 @@ async function loadSearchNames() {
         console.error("Error deleting search:", error);
         alert("Failed to delete the search. Check the console for more details.");
       }
-      });
     });
+
+    
   } catch (error) {
     console.error("Error fetching search names:", error);
     alert("Failed to fetch search names. Check the console for more details.");
@@ -35318,7 +35334,7 @@ async function loadSelectionNames() {
     if (!response.ok) {
       throw new Error(`Failed to fetch selection names. Status: ${response.status}, ${response.statusText}`);
     }
-    return response.json();
+    selections_names = await response.json();
   } catch (error) {
     console.error("Error fetching selection names:", error);
     return [];
@@ -35326,7 +35342,7 @@ async function loadSelectionNames() {
   
 }
 
-selections_names = await loadSelectionNames();
+ await loadSelectionNames();
 
 console.log("Available selection names:", selections_names);
 
@@ -35345,6 +35361,142 @@ async function loadSelection(selection_name) {
     return null;
   }
 }
+
+async function loadAllSelections() {
+  try {
+    const response = await fetch('http://localhost:3000/api/decklists/selection/loadall', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch all selections. Status: ${response.status}, ${response.statusText}`);
+    }
+
+    console.log("Fetched all selections successfully.");
+    console.log("Response data:", await response.clone().json());
+
+    const selectionData = await response.json();
+    if (Array.isArray(selectionData)) {
+      for (const selection of selectionData) {
+        if (selection?.name) {
+          console.log(`Loading selection: ${selection.name}`, selection);
+          let to_save = {...selection};
+          delete to_save.name; // Remove name from the selection object
+          selections[selection.name] = to_save;
+        } else {
+          console.warn("Invalid selection format:", selection);
+        }
+      }
+    } else {
+      console.error("Unexpected response format:", selectionData);
+    }
+    console.log("All selections loaded:", JSON.parse(JSON.stringify(selections)));
+
+    console.log("Adding selections to dropdown...");
+    const selectionList = document.getElementById('selection-list');
+    // Populate the selection list dropdown
+    selectionList.innerHTML = ''; // Clear existing options
+    selectionList.innerHTML = selections_names.map(name => `
+      <option class="selection-option" value="${name}">
+      ${name}
+      </option>
+    `).join('');
+
+    // Add hover tooltip for options
+    const options = document.querySelectorAll('.selection-option');
+    options.forEach(option => {
+      option.addEventListener('mouseover', (event) => {
+        const tooltip = document.createElement('div');
+        const selection_name = option.value;
+        tooltip.className = 'tooltip';
+        let innerText = `Filter: ${selection[selection_name] ? JSON.stringify(selection[selection_name].filter) : 'N/A'}`;
+        innerText += `\nDate: ${selection[selection_name] ? JSON.stringify(Object.values(selection[selection_name].date)) : 'N/A'}`;
+        innerText += `\nN. Decklists: ${selection[selection_name] ? selection[selection_name].n_decklists : 'N/A'}`;
+        tooltip.innerText = innerText;
+        document.body.appendChild(tooltip);
+
+        const rect = option.getBoundingClientRect();
+        tooltip.style.left = `${rect.left + window.scrollX}px`;
+        tooltip.style.top = `${rect.bottom + window.scrollY}px`;
+      });
+      option.addEventListener("mousemove", function(event) {
+            const tooltip = document.querySelector('.tooltip');
+            if (tooltip) {
+              tooltip.style.left = `${event.clientX + 5}px`;
+              tooltip.style.top = `${event.clientY + 5}px`;
+            }
+        });
+      option.addEventListener("mouseout", function() {
+            const tooltip = document.querySelector('.tooltip');
+            if (tooltip) {
+              tooltip.remove();
+            }
+          });
+    });
+
+  } catch (error) {
+    console.error("Error loading all selections:", error);
+  }
+}
+
+// Add event listeners for delete button
+const deleteButton = document.getElementById('delete-selection');
+deleteButton.addEventListener('click', async (event) => {
+  event.stopPropagation(); // Prevent the dropdown from opening
+  const selectedOption = document.querySelector('#selection-list').value;
+  console.log("Currently selected selection:", selectedOption);
+  if (!selectedOption) {
+    alert("Selection cannot be empty.");
+    return;
+  }
+
+  if (!confirm(`Are you sure you want to delete the selection "${selectedOption}"?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`http://localhost:3000/api/decklists/selection/delete?selection_name=${encodeURIComponent(selectedOption)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+    throw new Error(`Failed to delete selection. Status: ${response.status}, ${response.statusText}`);
+    }
+
+    console.log(`Selection "${selectedOption}" deleted successfully.`);
+    alert(`Selection "${selectedOption}" deleted successfully.`);
+
+    // Remove the option from the dropdown
+    const optionToRemove = document.querySelector(`option[value="${selectedOption}"]`);
+    if (optionToRemove) {
+    optionToRemove.remove();
+    }
+  } catch (error) {
+    console.error("Error deleting selection:", error);
+    alert("Failed to delete the selection. Check the console for more details.");
+  }
+});
+
+await loadAllSelections();
+
+async function reloadSearchesSelections() {
+  await loadSearchNames();
+  await loadSelectionNames();
+  await loadAllSelections();
+}
+
+const reloadSearchesSelectionsBtn = document.getElementById('reload-searches-selections');
+reloadSearchesSelectionsBtn.addEventListener('click', async () => {
+  try {
+    await reloadSearchesSelections();
+    alert("Searches and selections reloaded successfully.");
+  } catch (error) {
+    console.error("Error reloading searches and selections:", error);
+    alert("Failed to reload searches and selections. Check the console for more details.");
+  }
+});
 
 // Aggiungi il primo form all'avvio
 if (Object.keys(all_criterias.group_form_names).length === 0) {

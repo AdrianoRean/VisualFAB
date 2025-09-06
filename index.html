@@ -6,16 +6,29 @@
 </head>
 <body>
   <div style="margin-top: 10px;">
-    <h1 style="display: inline; padding: 10px 20px; margin-right: 10px;">VisualFAB</h1>  
-    <button id="submit-all" style="display: inline; padding: 10px 20px; font-size: 16px; margin-right: 10px;">Restart Exploration</button>
-    <button id="toggle-forms" style="display: inline; padding: 10px 20px; font-size: 16px;">Toggle Forms</button>
-    <input id="search-name" type="text" placeholder="Enter search name" style="display: inline; padding: 10px 20px; font-size: 16px; margin-right: 10px;">
-    <button id="save-search" style="display: inline; padding: 10px 20px; font-size: 16px;">Save Search</button>
-    <select id="search-list" style="display: inline; padding: 10px 20px; font-size: 16px; margin-left: 10px; background-color: white;">
+    <h1 style="display: inline; padding: 8px 16px; margin-right: 8px; font-size: 20px;">VisualFAB</h1>  
+    <div class="menu-container" style="display: inline-block; border: 2px solid black; padding: 8px;">
+      <input id="search-name" type="text" placeholder="Enter search name" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-right: 8px;">
+      <button id="save-search" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Save Search</button>
+      <select id="search-list" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-left: 8px; background-color: white;">
       <option value="" disabled selected>Select a search</option>
-    </select>
-    <button id="load-search" style="display: inline; padding: 10px 20px; font-size: 16px;">Load Search</button>
+      </select>
+    </div>
+    <div class="menu-container" style="display: inline-block; border: 2px solid black; padding: 8px;">
+      <button id="load-search" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Load Search</button>
+      <button id="delete-search" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Delete Search</button>
+      <select id="selection-list" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-left: 8px; background-color: white;">
+      <option value="" disabled selected>Select a Selection</option>
+      </select>
+      <button id="delete-selection" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Delete Selection</button>
+    </div>
+    <div class="menu-container" style="display: inline-block; border: 2px solid black; padding: 8px;">
+      <button id="submit-all" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-right: 8px;">Restart Exploration</button>
+      <button id="reload-searches-selections" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-right: 8px;">Reload Searches/Selections</button>
+      <button id="toggle-forms" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Toggle Forms</button>
+    </div>
   </div>
+  <br>
   <div id="form-display">
     <button id="add-form" style="padding: 5px 5px; font-size: 16px;">➕ Add Decklist Group</button><br>
     <div id="forms-container" style="display: flex; flex-direction: row; flex-wrap: wrap;"></div>

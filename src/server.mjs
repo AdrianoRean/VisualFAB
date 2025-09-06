@@ -530,8 +530,7 @@ app.post('/api/decklists/calculate', async (req, res) => {
         if (graph_requests["parallel_coordinates_matchups"].selections) {
             for (const selection_name of Object.values(graph_requests["parallel_coordinates_matchups"].selections)) {
                 const selection = await loadSelection(selection_name);
-                const selection_decklists = filterDecklists(decklists, selection.filter);
-                decksToCompare[selection_name] = selection_decklists.map(dl => dl["Metadata"]["List Id"]);
+                decksToCompare[selection_name] = selection ? selection.decklists_ID : [];
             }
         }
         const streamlinedDecksToCompare = decksToCompare ? Object.values(decksToCompare).flat() : [];
@@ -651,10 +650,15 @@ app.delete('/api/decklists/search/delete', async (req, res) => {
 app.post('/api/decklists/selection/save', async (req, res) => {
     try {
         console.log('POST /api/decklists/selection/save - Request received');
-        const newSelection = req.body;
-        console.log('New selection:', newSelection);
+        let newSelection = { ...req.body };
+        console.log('Selection info:', newSelection);
 
-        const selections = await loadSelections();
+        const decklists_ID = filterDecklists(decklists, newSelection.filter).map(dl => dl["Metadata"]["List Id"]);
+        newSelection["decklists_ID"] = decklists_ID;
+        newSelection["n_decklists"] = decklists_ID.length;
+        newSelection["date"] = new Date().toISOString();
+
+        const selections = JSON.parse(await readFile(selectionFilePath, 'utf-8'));
         await saveSelections(selections, newSelection);
 
         res.status(201).json({ message: 'Selection saved successfully' });
@@ -688,13 +692,25 @@ app.get('/api/decklists/selection/load', async (req, res) => {
         const selection = await loadSelection(selectionName);
         if (selection) {
             res.json(selection);
-            console.log('Response sent with selection:', selection);
+            console.log('Response sent with selection:', selection.name);
         } else {
             res.status(404).json({ error: 'Selection not found' });
             console.log('Selection not found');
         }
     } catch (error) {
         console.error('Error in /api/decklists/selection/load:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/decklists/selection/loadall', async (req, res) => {
+    try {
+        console.log('GET /api/decklists/selection/loadall - Request received');
+        const selections = JSON.parse(await readFile(selectionFilePath, 'utf-8'));
+        res.json(selections);
+        console.log('Response sent with all selections:', selections);
+    } catch (error) {
+        console.error('Error in /api/decklists/selection/loadall:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
