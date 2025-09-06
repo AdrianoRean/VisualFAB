@@ -30,7 +30,7 @@ let selected_matchups = [];
 let scatter_updated = false;
 const graphs_filters = {};
 
-function debounce(func, wait) {
+function debounce(func, wait = 300) {
   let timeout;
   return function(...args) {
     clearTimeout(timeout);
@@ -86,14 +86,17 @@ await getFormData();
 // Funzione per creare un nuovo form dinamico
 
 export function createForm(existingGroupName = null) {
+  let moniker;
   let groupName;
   let g_index;
   if (existingGroupName !== null){
     groupName = existingGroupName;
     g_index = Object.keys(all_criterias.group_form_names).find(key => all_criterias.group_form_names[key] === existingGroupName);
+    moniker = existingGroupName;
   } else {
     groupName = `Group_${group_index}`;
-    all_criterias["group_form_names"][group_index] = groupName;
+    moniker = Math.random().toString(36).substring(2, 8); // Generate a random string
+    all_criterias["group_form_names"][group_index] = moniker;
     g_index = group_index;
   }
   const formDiv = document.createElement('form');
@@ -110,7 +113,7 @@ export function createForm(existingGroupName = null) {
     <div class="form-content-container" style="display: flex; gap: 20px;">
       <div class="form-section">
         <label>Group Name:</label><br>
-        <input type="text" name="group-name" value="Group_${g_index}" required>
+        <input type="text" name="group-name" value="${moniker}" required>
         <label>
           <br><input type="checkbox" name="dynamic-group-name" checked>
           Dynamic
@@ -208,12 +211,12 @@ export function createForm(existingGroupName = null) {
 
     return newGroupName;
   }
-  groupNameInput.addEventListener('input', async () => {
+  groupNameInput.addEventListener('input', debounce(async () => {
     formDiv.querySelector('input[name="dynamic-group-name"]').checked = false;
     const newGroupName = updateGroupName();
     formDiv.querySelector('input[name="group-name"]').value = newGroupName;
-     await getDataAndUpdateViz();  
-    });
+    await getDataAndUpdateViz();
+  }));
 
   const rankInputs = formDiv.querySelectorAll('input[name="rank-min"], input[name="rank-max"]');
   function updateRankRange() {
@@ -224,10 +227,10 @@ export function createForm(existingGroupName = null) {
     all_criterias.groups[all_criterias.group_form_names[formId]].filter.Rank = { precision: "RANGE", value: { min: rankMin, max: rankMax } };
   }
   rankInputs.forEach(input => {
-    input.addEventListener('input', async () => {
+    input.addEventListener('input', debounce(async () => {
       updateRankRange();
-       await getDataAndUpdateViz();    
-      });
+      await getDataAndUpdateViz();
+    }));
   });
 
   const heroCheckboxes = formDiv.querySelectorAll('input[name="heroes"]');
@@ -239,9 +242,14 @@ export function createForm(existingGroupName = null) {
           .filter(cb => cb.checked)
           .map(cb => cb.value);
 
-        const new_name = selectedHeroes.length === 1
-          ? selectedHeroes[0]
-          : selectedHeroes.map(hero => hero.slice(0, 3)).join("-");
+        let new_name;
+        if (selectedHeroes.length === 0) {
+          new_name = Math.random().toString(36).substring(2, 8); // Generate a random string
+        } else if (selectedHeroes.length === 1) {
+          new_name = selectedHeroes[0];
+        } else {
+          new_name = selectedHeroes.map(hero => hero.slice(0, 3)).join("-");
+        }
 
         let newGroupName = new_name.trim().replace(/[^a-zA-Z0-9-_ ]/g, ''); // Sanitize input by removing special characters but keep whitespaces
         // Check for duplicates in all_criterias.groups
@@ -265,14 +273,18 @@ export function createForm(existingGroupName = null) {
         .filter(cb => cb.checked)
         .map(cb => cb.value);
       all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || {"filter": {}};
-      all_criterias.groups[all_criterias.group_form_names[formId]].filter.Hero = { precision: "IS-IN", value: selectedHeroes };
+      if (selectedHeroes.length > 0) {
+        all_criterias.groups[all_criterias.group_form_names[formId]].filter.Hero = { precision: "IS-IN", value: selectedHeroes };
+      } else {
+        delete all_criterias.groups[all_criterias.group_form_names[formId]].filter.Hero;
+      }
       console.log("Changing!");
   }
   heroCheckboxes.forEach(checkbox => {
     checkbox.addEventListener('change', async () => {
       updateHeroSelection();
-       await getDataAndUpdateViz();    
-      });
+      await getDataAndUpdateViz();
+    });
   });
 
   const formatRadios = formDiv.querySelectorAll('input[name="format"]');
@@ -283,10 +295,10 @@ export function createForm(existingGroupName = null) {
       all_criterias.groups[all_criterias.group_form_names[formId]].filter.Format = { precision: "IS", value: selectedFormat };
   }
   formatRadios.forEach(radio => {
-    radio.addEventListener('change', async () => {
+    radio.addEventListener('change', debounce(async () => {
       updateFormatSelection();
-       await getDataAndUpdateViz();    
-      });
+      await getDataAndUpdateViz();
+    }));
   });
 
   const startDateInput = formDiv.querySelector('input[name="start-date"]');
@@ -299,10 +311,10 @@ export function createForm(existingGroupName = null) {
     all_criterias.groups[all_criterias.group_form_names[formId]].filter.Date = { precision: "DATE", value: { min: startDate, max: endDate } }
   };
   [startDateInput, endDateInput].forEach(input => {
-    input.addEventListener('change', async () => {
+    input.addEventListener('change', debounce(async () => {
       updateDateRange();
-       await getDataAndUpdateViz();    
-      });
+      await getDataAndUpdateViz();
+    }));
   });
 
   // Add toggle functionality for hiding/showing the form content
@@ -1329,58 +1341,66 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
 
 export function fillTable(data) {
 
-  if (!document.getElementById('filters-container')) {
-    // Add filters above the table
-    const filtersContainer = document.createElement('div');
-    filtersContainer.id = 'filters-container';
-    filtersContainer.style.display = 'flex';
-    filtersContainer.style.gap = '10px';
-    filtersContainer.style.height = '60px';
+  filterAndHead.innerHTML = ''; // Clear previous content
+  // Add filters above the table
+  const filtersContainer = document.createElement('div');
+  filtersContainer.id = 'filters-container';
+  filtersContainer.style.display = 'flex';
+  filtersContainer.style.gap = '10px';
+  filtersContainer.style.height = '60px';
 
-    filtersContainer.style.overflowX = 'auto'; // Enable horizontal scrolling if needed
-    filtersContainer.style.flexWrap = 'wrap'; // Wrap filters to the next line if they exceed the container width
+  filtersContainer.style.overflowX = 'auto'; // Enable horizontal scrolling if needed
+  filtersContainer.style.flexWrap = 'wrap'; // Wrap filters to the next line if they exceed the container width
 
-    const filterWrapper = document.createElement('div');
-    filterWrapper.style.display = 'flex';
-    filterWrapper.style.flexWrap = 'nowrap'; // Prevent wrapping
-    filterWrapper.style.overflowX = 'auto'; // Enable horizontal scrolling
-    filterWrapper.style.gap = '10px'; // Add spacing between filters
+  const filterWrapper = document.createElement('div');
+  filterWrapper.style.display = 'flex';
+  filterWrapper.style.flexWrap = 'nowrap'; // Prevent wrapping
+  filterWrapper.style.overflowX = 'auto'; // Enable horizontal scrolling
+  filterWrapper.style.gap = '10px'; // Add spacing between filters
 
-    [
-      'ID', 'Event', 'Date', 'Rank', 'Player', 'Hero', 'Classes', 'Talents', 'Played Rounds', 'Top Rounds',
-      'Wins', 'Losses', 'Draws', 'Double Losses'
-    ].forEach(column => {
-      const filterColumnWrapper = document.createElement('div');
-      filterColumnWrapper.style.display = 'flex';
-      filterColumnWrapper.style.flexDirection = 'column';
-      filterColumnWrapper.style.alignItems = 'center';
-      filterColumnWrapper.style.height = '30px'; // Ensure height for each filter
+  const filters = {};
 
-      const columnLabel = document.createElement('span');
-      columnLabel.textContent = column;
-      columnLabel.style.fontWeight = 'bold';
+  [
+    'Group', 'ID', 'Event', 'Date', 'Rank', 'Player', 'Hero', 'Classes', 'Talents', 'Played Rounds', 'Top Rounds',
+    'Wins', 'Losses', 'Draws', 'Double Losses'
+  ].forEach((column, index) => {
+    const filterColumnWrapper = document.createElement('div');
+    filterColumnWrapper.style.display = 'flex';
+    filterColumnWrapper.style.flexDirection = 'column';
+    filterColumnWrapper.style.alignItems = 'center';
+    filterColumnWrapper.style.height = '30px'; // Ensure height for each filter
 
-      const filterInput = document.createElement('input');
-      filterInput.type = 'text';
-      filterInput.placeholder = `Filter by ${column}`;
-      filterInput.dataset.column = column.toLowerCase().replace(' ', '_');
-      //filterInput.style.flex = '0 0 150px'; // Ensure inputs have a fixed width
-      filterInput.addEventListener('input', () => {
-        const filterValue = filterInput.value.toLowerCase();
-        Array.from(tbody.rows).forEach(row => {
-          const cell = row.querySelector(`td:nth-child(${thead.querySelectorAll('th').length - 14 + Array.from(thead.querySelectorAll('th')).findIndex(th => th.textContent === column)})`);
-          row.style.display = cell && cell.textContent.toLowerCase().includes(filterValue) ? '' : 'none';
+    const columnLabel = document.createElement('span');
+    columnLabel.textContent = column;
+    columnLabel.style.fontWeight = 'bold';
+
+    const filterInput = document.createElement('input');
+    filterInput.type = 'text';
+    filterInput.placeholder = `Filter by ${column}`;
+    filterInput.dataset.column = column.toLowerCase().replace(' ', '_');
+    filters[column] = '';
+
+    filterInput.addEventListener('input', () => {
+      filters[column] = filterInput.value.toLowerCase();
+      Array.from(tbody.rows).forEach(row => {
+        let isVisible = true;
+        Object.keys(filters).forEach((key, filterIndex) => {
+          const cell = row.cells[filterIndex + 1]; // Adjust index to match the column
+          if (filters[key] && (!cell || !cell.textContent.toLowerCase().includes(filters[key]))) {
+            isVisible = false;
+          }
         });
+        row.style.display = isVisible ? '' : 'none';
       });
-
-      filterColumnWrapper.appendChild(columnLabel);
-      filterColumnWrapper.appendChild(filterInput);
-      filterWrapper.appendChild(filterColumnWrapper);
     });
 
-    filtersContainer.appendChild(filterWrapper);
-    filterAndHead.appendChild(filtersContainer);
-  }
+    filterColumnWrapper.appendChild(columnLabel);
+    filterColumnWrapper.appendChild(filterInput);
+    filterWrapper.appendChild(filterColumnWrapper);
+  });
+
+  filtersContainer.appendChild(filterWrapper);
+  filterAndHead.appendChild(filtersContainer);
 
   // Create the table element
   const table = document.createElement('table');
@@ -1399,9 +1419,14 @@ export function fillTable(data) {
   thead.style.top = '0'; // Stick to the top
   thead.style.backgroundColor = '#fff'; // Add background color to avoid overlap
   thead.style.zIndex = '1'; // Ensure it stays above the rows
+  thead.style.textAlign = 'center';
   thead.innerHTML = `
     <tr>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Selected</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">
+        Selected
+        <button id="manage-selected-list-table">Manage</button>
+      </th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Group</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">ID</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Event</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Date</th>
@@ -1410,14 +1435,79 @@ export function fillTable(data) {
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Hero</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Classes</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Talents</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Played Rounds</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Top Rounds</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Wins</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Losses</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Draws</th>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Double Losses</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Played Rounds</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Top Rounds</th>
     </tr>
   `;
+
+  // Add pop-up menu for "Manage" button
+  const manageButton = thead.querySelector('#manage-selected-list-table');
+  manageButton.addEventListener('click', () => {
+    const popup = document.createElement('div');
+    popup.style.position = 'fixed';
+    popup.style.top = '50%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+    popup.style.background = '#fff';
+    popup.style.border = '1px solid #ccc';
+    popup.style.padding = '20px';
+    popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
+    popup.style.zIndex = '1000';
+
+    popup.innerHTML = `
+      <h3>Manage Selected List</h3>
+      <form id="manage-selected-list-form">
+        <label>
+          <input type="radio" name="manage-option" value="clear" required>
+          Clear Selected List
+        </label><br>
+        <label>
+          <input type="radio" name="manage-option" value="export">
+          Export Selected List
+        </label><br>
+        <label>
+          <input type="radio" name="manage-option" value="analyze">
+          Analyze Selected List
+        </label>
+        <br><br>
+      <button type="submit">Submit</button>
+      <button type="button" id="cancel-manage-popup">Cancel</button>
+      </form>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Add event listener for form submission
+    const form = popup.querySelector('#manage-selected-list-form');
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const selectedOption = form.elements['manage-option'].value;
+
+      if (selectedOption === 'clear') {
+        const checkboxes = document.querySelectorAll('.select-decklist');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        alert('Selected list cleared.');
+      } else if (selectedOption === 'export') {
+        alert('Exporting selected list...');
+        // Add export logic here
+      } else if (selectedOption === 'analyze') {
+        alert('Analyzing selected list...');
+        // Add analyze logic here
+      }
+
+      popup.remove();
+    });
+
+    // Add event listener for cancel button
+    const cancelButton = popup.querySelector('#cancel-manage-popup');
+    cancelButton.addEventListener('click', () => {
+      popup.remove();
+    });
+  });
 
   // Add rows for each group and decklist
   Object.entries(data).forEach(([group, decklists]) => {
@@ -1429,6 +1519,7 @@ export function fillTable(data) {
 
       row.innerHTML = `
         <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;"><input type="checkbox" class="select-decklist" data-id="${decklist.id}"></td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${group}</td>
         <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["List Id"]}</td>
         <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Event"]}</td>
         <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Date"]}</td>
