@@ -34417,7 +34417,8 @@ let selected_matchups = [];
 
 function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   console.log("Initializing parallel coordinates graph...");
-  
+  console.log("Data for parallel coordinates graph:", JSON.parse(JSON.stringify(data)));
+
   const button_height = 30;
   const button_margin = 10;
 
@@ -34514,6 +34515,9 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
             Object.keys(matchupsFilter.value).forEach(matchup => {
               if (!selected_matchups.includes(matchup)) {
                 delete matchupsFilter.value[matchup];
+                if (selections_names.includes(matchup)) {
+                  all_criterias.graphs["parallel_coordinates_matchups"].selections = all_criterias.graphs["parallel_coordinates_matchups"].selections.filter(s => s !== matchup);
+                }
               }
             });
           }
@@ -34526,6 +34530,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
           }
           if (!all_criterias.graphs["parallel_coordinates_matchups"].matchups.some(m => m.name === matchup)) {
             if (selections_names.includes(matchup)) {
+              all_criterias.graphs["parallel_coordinates_matchups"].selections = all_criterias.graphs["parallel_coordinates_matchups"].selections ? all_criterias.graphs["parallel_coordinates_matchups"].selections.push(matchup) : [matchup];
               all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: matchup, type: "selection", range: { min: 0, max: 100 } });
             }else {
               all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: matchup, type: "hero", range: { min: 0, max: 100 } });
@@ -34576,9 +34581,11 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
 
   console.log("Extracting dimensions...");
   // Extract the list of dimensions we want to keep in the plot. Here I keep all except the column called Species
-  const dimensions = data.Dimensions;
+  const dimensions = [...data.Dimensions];
   delete data.Dimensions;
+  delete data.selections;
   console.log("Dimensions:", dimensions);
+  data = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation issues
 
   var margin = {top: 10, right: 0, bottom: 30, left: 0},
       width, height;
@@ -34604,8 +34611,6 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   .append("g")
     .attr("transform",
           "translate(" + margin.left + "," + (margin.top + button_margin) + ")");
-
-  console.log("data:", data);
 
   console.log("Building scales for each dimension...");
   
@@ -34634,14 +34639,14 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       .call(d3.axisLeft(y));
   }
       */
-
+  console.log("Data before processing:", JSON.parse(JSON.stringify(data)));
   // Reorder group_data to match the order of dimensions
   Object.entries(data).forEach(([group, group_data]) => {
     console.log(`Reordering data for group: ${group}`);
     //console.log("Original group data:", group_data);
     const correct_order = [];
     dimensions.forEach(d => {
-      const found = group_data.find(g => g.hero === d);
+      const found = group_data.find(g => g.matchup === d);
       if (found) {
         correct_order.push(found);
       }
@@ -34649,12 +34654,14 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
     data[group] = correct_order; // Update the original data object
     //console.log("Reordered group data:", data[group]);
   });
+  console.log("Data after processing:", JSON.parse(JSON.stringify(data)));
 
   //console.log("Reordered data for each group:", data);
 
   console.log("Drawing lines and points for each group...");
   Object.entries(data).forEach(([group, group_data]) => {
     console.log(`Processing group: ${group}`);
+    console.log("Group data:", group_data);
     
     // Draw the lines
     svg.append("path")
@@ -34674,7 +34681,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       .enter()
       .append("circle")
         .attr("class", `group-${group.replaceAll(" ", "")}`)
-        .attr("cx", d => x(d["hero"]))
+        .attr("cx", d => x(d.matchup))
         .attr("cy", d => y(d.winrate))
         .attr("r", 5)
         .attr("fill", color(group))
@@ -34682,7 +34689,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
           d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("fill", "red");
           tooltip
             .style("display", "block")
-            .html(`Group: ${group}<br>Matchup: ${d.hero}<br>Played Rounds: ${d.playedRounds}<br>Winrate: ${d.winrate.toFixed(2)}%`)
+            .html(`Group: ${group}<br>Matchup: ${d.matchup}<br>Played Rounds: ${d.playedRounds}<br>Winrate: ${d.winrate.toFixed(2)}%`)
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
         })
@@ -34712,7 +34719,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       .style("text-anchor", "middle")
       .attr("y", -9)
       .text(function(d) { return d; })
-      .style("fill", "black");
+      .style("fill", d => selections_names.includes(d) ? color(d) : "black");
 
     // Add movable point for filters
     let yMin, yMax;

@@ -237,7 +237,7 @@ function parallelMatchups(grouped_decklists, matchups_array, decklistsToCompare=
             console.log("Processing matchup:", matchup);
             Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
                 console.log(`Processing group "${group_name}"`);
-                const matchupStats = {};
+                let matchupStats = {};
 
                 for (const decklist of decklists) {
                     const played_matchups = decklist["Classic Constructed Matchups"];
@@ -287,14 +287,14 @@ function parallelMatchups(grouped_decklists, matchups_array, decklistsToCompare=
 
                 console.log(`Processed ${decklists.length} decklists for group "${group_name}"`);
 
-                const matchupWinrates = [];
+                let matchupWinrates = [];
                 for (const [matchup_name, stats] of Object.entries(matchupStats)) {
                     const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
                     const playedRounds = stats.played;
                     matchupWinrates.push({ "matchup": matchup_name, winrate, playedRounds});
                     console.log(`Matchup: ${matchup_name}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
                 }
-                grouped_matchup_winrates[group_name] = matchupWinrates;
+                grouped_matchup_winrates[group_name] = [...matchupWinrates];
             });
         });
         console.log('Finished calculating matchup winrates for all groups');
@@ -520,6 +520,7 @@ app.post('/api/decklists', async (req, res) => {
 
 app.post('/api/decklists/calculate', async (req, res) => {
     try {
+        console.log('\n ******************** \n POST /api/decklists/calculate - Request received \n ******************** \n ');
         const filterCriteria = req.body.filters;
         const groupCriteria = req.body.groups;
         const graph_requests = req.body.graphs;
@@ -528,11 +529,14 @@ app.post('/api/decklists/calculate', async (req, res) => {
         console.log('Graph requests:', graph_requests);
         const decksToCompare = {};
         if (graph_requests["parallel_coordinates_matchups"].selections) {
+            console.log("Loading selections for parallel coordinates matchups:", graph_requests["parallel_coordinates_matchups"].selections);
             for (const selection_name of Object.values(graph_requests["parallel_coordinates_matchups"].selections)) {
                 const selection = await loadSelection(selection_name);
+                console.log(`Selection "${selection_name}" loaded with ${selection.decklists_ID.length} decklists`);
                 decksToCompare[selection_name] = selection ? selection.decklists_ID : [];
             }
         }
+        console.log("Start Filtering and grouping decklists");
         const streamlinedDecksToCompare = decksToCompare ? Object.values(decksToCompare).flat() : [];
         const filtered = filterDecklists(decklists, filterCriteria, streamlinedDecksToCompare);
         let grouped_decklists = groupDecklists(filtered, groupCriteria);
@@ -550,7 +554,7 @@ app.post('/api/decklists/calculate', async (req, res) => {
                 break;
             case 'parallel_coordinates':
                 // Call the function to handle parallel coordinates graph
-                let parallel_coordinates_data = parallelMatchups(grouped_decklists, request_data.matchups);
+                let parallel_coordinates_data = parallelMatchups(grouped_decklists, request_data.matchups, decksToCompare);
                 json_response[graph_name] = parallel_coordinates_data;
                 break;
             case 'scatter_plot':
@@ -569,12 +573,6 @@ app.post('/api/decklists/calculate', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-});
-
 // API to load a specific search by name
 app.get('/api/decklists/search/load', async (req, res) => {
     try {
@@ -708,7 +706,7 @@ app.get('/api/decklists/selection/loadall', async (req, res) => {
         console.log('GET /api/decklists/selection/loadall - Request received');
         const selections = JSON.parse(await readFile(selectionFilePath, 'utf-8'));
         res.json(selections);
-        console.log('Response sent with all selections:', selections);
+        console.log('Response sent with all selections');
     } catch (error) {
         console.error('Error in /api/decklists/selection/loadall:', error.message);
         res.status(500).json({ error: error.message });
@@ -727,4 +725,8 @@ app.delete('/api/decklists/selection/delete', async (req, res) => {
         console.error('Error in /api/decklists/selection/delete:', error.message);
         res.status(500).json({ error: error.message });
     }
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
 });
