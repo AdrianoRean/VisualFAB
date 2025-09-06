@@ -33794,6 +33794,7 @@ let all_criterias = {
   "group_form_names": {},
   "groups": {},
   "graphs": {},
+  "selections": []
 };
 
 async function getFormData(){
@@ -33893,7 +33894,7 @@ function createForm(existingGroupName = null) {
         <label>Date Range:</label><br>
         <input type="datetime-local" name="start-date" value="2019-01-01T00:00" required> to
         <br>
-        <input type="datetime-local" name="end-date" value="${new Date().toISOString().slice(0, 16)}" required>
+        <input type="datetime-local" name="end-date" max="${new Date().toISOString().slice(0, 16)}" value="${new Date().toISOString().slice(0, 16)}" required>
         <br><br>
         <div id="decklists-analyzed-count-group-${g_index}">n/d</div>
         <button type="button" class="save-form-as-selection">Save Decklists Group as Selection ℹ️</button>
@@ -34089,7 +34090,7 @@ function createForm(existingGroupName = null) {
     }
 
     try {
-      let json_body = { name: groupName, filter: all_criterias.groups[groupName] };
+      let json_body = { name: groupName, selections: all_criterias.selections, filter: all_criterias.groups[groupName] };
       delete json_body.filter;
       json_body["filter"] = all_criterias.groups[groupName].filter;
       const response = await fetch('http://localhost:3000/api/decklists/selection/save', {
@@ -34122,7 +34123,13 @@ function createForm(existingGroupName = null) {
 
   // Add listener to the remove button
   formDiv.querySelector('.remove-form').addEventListener('click', () => {
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const groupName = all_criterias.group_form_names[formId];
+    delete all_criterias.groups[groupName];
+    delete all_criterias.group_form_names[formId];
+    all_criterias.graphs.parallelCoordinatesGraph?.[groupName] ? delete all_criterias.graphs.parallelCoordinatesGraph[groupName] : null;
     formDiv.remove();
+    getDataAndUpdateViz();
   });
 
   // Update form
@@ -34146,6 +34153,8 @@ function createForm(existingGroupName = null) {
   //updateDateRange();
   // If there are matchups in all_criterias, add them to the new group
   if (all_criterias.graphs["parallel_coordinates_matchups"]?.matchups) {
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || { filter: {} };
     all_criterias.groups[all_criterias.group_form_names[formId]].filter["Matchups Winrate"] = {
       precision: "COMPOUND",
       value: all_criterias.graphs["parallel_coordinates_matchups"].matchups.reduce((acc, matchup) => {
@@ -34209,6 +34218,7 @@ addFormBtn.addEventListener('click', () => createForm());
 const tooltip = d3__WEBPACK_IMPORTED_MODULE_0__.select("body")
   .append("div")
   .attr("id", "d3-tooltip")
+  .style("z-index", "1001")
   .style("position", "absolute")
   .style("background", "#fff")
   .style("border", "1px solid #999")
@@ -34405,11 +34415,16 @@ function adjustGroupFilters(data, dim, this_graph_filters){
     }
     if (group_filter["filter"]["Matchups Winrate"]["value"][dim] === undefined) {
       group_filter["filter"]["Matchups Winrate"]["value"][dim] = {
+        type: selections_names.includes(dim) ? "selection" : "hero",
         min: this_graph_filters[dim].min,
         max: this_graph_filters[dim].max
       };
     }
-    group_filter["filter"]["Matchups Winrate"]["value"][dim] = this_graph_filters[dim];
+    group_filter["filter"]["Matchups Winrate"]["value"][dim] = {
+      type: selections_names.includes(dim) ? "selection" : "hero",
+      min: this_graph_filters[dim].min,
+      max: this_graph_filters[dim].max
+    };
   });
 }
 
@@ -34453,7 +34468,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       <h3>Add Matchups</h3>
       <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
       ${selections_names.map(selection => `
-          <label style="background-color:${color(selection)}">
+          <label class="matchup-label" style="background-color:${color(selection)}">
             <input type="checkbox" class="matchup-checkbox" id="matchup-input-${selection}" value="${selection}">
             Group: ${selection}
           </label><br>
@@ -34471,6 +34486,35 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       <button id="matchup-popup-cancel">Cancel</button>
     `;
 
+    // Add hover tooltip for selection options
+    const selectionLabels = matchupPopup.querySelectorAll('label.matchup-label');
+    selectionLabels.forEach(label => {
+      label.addEventListener('mouseover', (event) => {
+        const label_content = label.textContent.split(":")[1].trim();
+        const selection_data = selections[label_content] ? selections[label_content] : loadSelection(label_content);
+        selections[label_content] = selection_data;
+        let info_html = `Selection: ${label_content}`;
+        info_html += `<br>N. Decklists: ${selection_data.n_decklists}`;
+        info_html += `<br>Date: ${selection_data.date}`;
+        info_html += `<br>Filter:<br>${Object.entries(selection_data.filter)
+          .map(([key, value]) => `${key}: ${JSON.stringify(value, null, 2)}`)
+          .join('<br>')}`;
+        tooltip
+          .style("display", "block")
+          .html(info_html)
+          .style("left", (event.pageX + 100) + "px")
+          .style("top", (event.pageY - 28) + "px");
+      });
+      label.addEventListener("mousemove", function(event) {
+        tooltip
+          .style("left", (event.pageX + 100) + "px")
+          .style("top", (event.pageY - 28) + "px");
+      });
+      label.addEventListener("mouseout", function() {
+        tooltip.style("display", "none");
+      });
+    });
+
     // Add event listeners for the pop-up menu
     addMatchupBtn.addEventListener('click', () => {
       console.log("Selected matchups:", selected_matchups);
@@ -34481,6 +34525,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
         if (selected_matchups.includes(checkbox.value)) {
           checkbox.checked = true;
         }
+        const selectionLabels = matchupPopup.querySelectorAll('label.matchup-label');
       });
     });
 
@@ -34516,7 +34561,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
               if (!selected_matchups.includes(matchup)) {
                 delete matchupsFilter.value[matchup];
                 if (selections_names.includes(matchup)) {
-                  all_criterias.graphs["parallel_coordinates_matchups"].selections = all_criterias.graphs["parallel_coordinates_matchups"].selections.filter(s => s !== matchup);
+                    all_criterias.selections = all_criterias.selections.filter(selection => selection !== matchup);
                 }
               }
             });
@@ -34530,39 +34575,15 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
           }
           if (!all_criterias.graphs["parallel_coordinates_matchups"].matchups.some(m => m.name === matchup)) {
             if (selections_names.includes(matchup)) {
-              all_criterias.graphs["parallel_coordinates_matchups"].selections = all_criterias.graphs["parallel_coordinates_matchups"].selections ? all_criterias.graphs["parallel_coordinates_matchups"].selections.push(matchup) : [matchup];
+              if (!all_criterias.selections) {
+                all_criterias.selections = [];
+              }
+              all_criterias.selections.push(matchup);
               all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: matchup, type: "selection", range: { min: 0, max: 100 } });
             }else {
               all_criterias.graphs["parallel_coordinates_matchups"].matchups.push({ name: matchup, type: "hero", range: { min: 0, max: 100 } });
             }
           }
-        });
-
-        //Add hover to selection options
-        // Add hover tooltip for selection options
-        const selectionLabels = matchupPopup.querySelectorAll('label');
-        selectionLabels.forEach(label => {
-          label.addEventListener('mouseover', (event) => {
-            const selection_data = selections[label.textContent.trim()] ? selections[label.textContent.trim()] : loadSelection(label.textContent.trim());
-            selections[label.textContent.trim()] = selection_data;
-            let info_html = `Selection: ${label.textContent.trim()}`;
-            info_html += `<br>N. Decklists: ${selection_data.n_decklists}`;
-            info_html += `<br>Date: ${selection_data.date}`;
-            info_html += `<br>Filter: ${selection_data.filter}`;
-            tooltip
-              .style("display", "block")
-              .html(info_html)
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 28) + "px");
-          });
-          label.addEventListener("mousemove", function(event) {
-            tooltip
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 28) + "px");
-          });
-          label.addEventListener("mouseout", function() {
-            tooltip.style("display", "none");
-          });
         });
 
         console.log('Matchups added:', selected_matchups);
@@ -34646,7 +34667,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
     //console.log("Original group data:", group_data);
     const correct_order = [];
     dimensions.forEach(d => {
-      const found = group_data.find(g => g.matchup === d);
+      const found = group_data.filter(g => g.matchup === d)[0];
       if (found) {
         correct_order.push(found);
       }
@@ -34671,7 +34692,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
       .style("stroke", color(group))
       .style("stroke-width", 1.5)
       .attr("d", d3__WEBPACK_IMPORTED_MODULE_0__.line()
-        .x(function(d) { return x(d.hero); })
+        .x(function(d) { return x(d.matchup); })
         .y(function(d) { return y(d.winrate); })
       );
 
@@ -34866,6 +34887,7 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
         const json_body = {
           filters: all_criterias.filters,
           groups: all_criterias.groups,
+          selections: all_criterias.selections,
           graphs: {
             scatter_plot_card_presence: { "type": "scatter_plot" }
           }
@@ -34939,7 +34961,12 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
         d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element).html("");
 
         // Redraw scatter plot with the new data
-        scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+        if (scatterData) {
+          scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+        } else {
+          console.error("No scatter plot data to display.");
+          alert("Failed to fetch scatter plot data. Please try again or change the filters.");
+        }
       } catch (error) {
         console.error("Error fetching scatter plot data:", error);
       }
@@ -35069,9 +35096,9 @@ async function getDataAndUpdateViz(){
 
       // color palette
       color = d3__WEBPACK_IMPORTED_MODULE_0__.scaleOrdinal()
-        .domain(Object.values(all_criterias["group_form_names"]).concat(selections_names ? selections_names : []))
+        .domain(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []))
         .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']);
-      setLegend(Object.values(all_criterias["group_form_names"]).concat(selections ? Object.keys(selections) : []));
+      setLegend(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []));
       // adjust count display
       console.log("data is:", JSON.parse(JSON.stringify(data)));
       console.log("all criteria:", JSON.parse(JSON.stringify(all_criterias)));
@@ -35142,6 +35169,7 @@ async function restartViz(){
   let criteria = {
       "filters": {
       },
+      "selections": all_criterias.selections ? all_criterias.selections : [],
       "groups": Object.values(groups).length > 0 ? groups : {},
       "graphs": {
         "timeseries_winrates": {

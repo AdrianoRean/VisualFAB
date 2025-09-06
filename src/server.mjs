@@ -4,6 +4,7 @@ import { UMAP } from 'umap-js';
 import { writeFile, readFile } from 'fs/promises';
 import path from 'path';
 import { match } from 'assert';
+import { filter } from 'd3';
 
 const app = express();
 const PORT = 3000;
@@ -18,7 +19,7 @@ const data = await readFile(decklists_file, 'utf-8');
 const decklists = JSON.parse(data);
 console.log(`Loaded ${decklists.length} decklists`);
 
-function filterDecklists(decklists, criteria, decksToCompare = []) {
+function filterDecklists(decklists, criteria, decksToCompare = {}) {
     console.log('Filtering decklists with criteria:', criteria);
     const filtered = decklists.filter(decklist => {
         return Object.entries(criteria).every(([key, value]) => {
@@ -41,7 +42,7 @@ function filterDecklists(decklists, criteria, decksToCompare = []) {
                         let wins = 0;
                         decklist["Classic Constructed Matchups"].forEach(round => {
                             if (values.type === "selection") {
-                                const opponentDeck = decksToCompare.includes(round["Opponent Deck ID"]);
+                                const opponentDeck = decksToCompare[matchup].includes(round["Opponent"]);
                                 if (opponentDeck) {
                                     played += 1;
                                     if (round["Result"] === "W") {
@@ -64,6 +65,8 @@ function filterDecklists(decklists, criteria, decksToCompare = []) {
                                 //console.log("Winrate is out of bounds");
                                 flag = false;
                             } else {
+
+                                //console.log("Winrate for", matchup, "Decklist ID", decklist.Metadata.Id, "is", winrate);
                                 //console.log("Winrate is within bounds");
                             }
                         } else {
@@ -82,7 +85,7 @@ function filterDecklists(decklists, criteria, decksToCompare = []) {
     return filtered;
 }
 
-function groupDecklists(decklists, groupCriteria) {
+function groupDecklists(decklists, groupCriteria, decklistsToCompare = {}) {
     console.log('Grouping decklists with group criteria:', groupCriteria);
     const grouped = {};
 
@@ -91,7 +94,7 @@ function groupDecklists(decklists, groupCriteria) {
         Object.entries(group["filter"]).forEach(([key, value]) => {
             console.log(` - ${key}:`, value);
         });
-        const grouped_decklists = filterDecklists(decklists, group["filter"]);
+        const grouped_decklists = filterDecklists(decklists, group["filter"], decklistsToCompare);
         grouped[groupKey] = grouped_decklists;
         console.log(`Group "${groupKey}" contains ${grouped_decklists.length} decklists`);
     }
@@ -237,18 +240,19 @@ function parallelMatchups(grouped_decklists, matchups_array, decklistsToCompare=
             console.log("Processing matchup:", matchup);
             Object.entries(grouped_decklists).forEach(([group_name, decklists]) => {
                 console.log(`Processing group "${group_name}"`);
+                grouped_matchup_winrates[group_name] = grouped_matchup_winrates[group_name] ? grouped_matchup_winrates[group_name] : [];
                 let matchupStats = {};
 
                 for (const decklist of decklists) {
                     const played_matchups = decklist["Classic Constructed Matchups"];
                     for (const round of played_matchups) {
-
                         if (matchup.type === "selection") {
-                            const opponentID = round["Opponent Deck ID"];
+                            const opponentID = round["Opponent"];
                             if (!decklistsToCompare[matchup.name].includes(opponentID)) {
                                 continue;
                             } else {
                                 if (!matchupStats[matchup.name]) {
+                                    console.log("Initializing stats for matchup:", matchup.name);
                                     matchupStats[matchup.name] = { played: 0, wins: 0, losses: 0, draws: 0, double_losses: 0 };
                                 }
                                 matchupStats[matchup.name].played += 1;
@@ -287,14 +291,12 @@ function parallelMatchups(grouped_decklists, matchups_array, decklistsToCompare=
 
                 console.log(`Processed ${decklists.length} decklists for group "${group_name}"`);
 
-                let matchupWinrates = [];
                 for (const [matchup_name, stats] of Object.entries(matchupStats)) {
                     const winrate = stats.played > 0 ? (stats.wins / stats.played) * 100 : 0;
                     const playedRounds = stats.played;
-                    matchupWinrates.push({ "matchup": matchup_name, winrate, playedRounds});
+                    grouped_matchup_winrates[group_name].push({ "matchup": matchup_name, winrate, playedRounds});
                     console.log(`Matchup: ${matchup_name}, Played: ${stats.played}, Wins: ${stats.wins}, Winrate: ${winrate.toFixed(2)}%`);
                 }
-                grouped_matchup_winrates[group_name] = [...matchupWinrates];
             });
         });
         console.log('Finished calculating matchup winrates for all groups');
@@ -524,22 +526,23 @@ app.post('/api/decklists/calculate', async (req, res) => {
         const filterCriteria = req.body.filters;
         const groupCriteria = req.body.groups;
         const graph_requests = req.body.graphs;
+        const selections = req.body.selections;
         console.log('Filter criteria:', filterCriteria);
         console.log('Group criteria:', groupCriteria);
         console.log('Graph requests:', graph_requests);
+        console.log('Selections requests:', selections);
         const decksToCompare = {};
-        if (graph_requests["parallel_coordinates_matchups"].selections) {
-            console.log("Loading selections for parallel coordinates matchups:", graph_requests["parallel_coordinates_matchups"].selections);
-            for (const selection_name of Object.values(graph_requests["parallel_coordinates_matchups"].selections)) {
+        if (selections.length > 0) {
+            console.log("Loading selections for parallel coordinates matchups:", selections);
+            for (const selection_name of selections) {
                 const selection = await loadSelection(selection_name);
                 console.log(`Selection "${selection_name}" loaded with ${selection.decklists_ID.length} decklists`);
                 decksToCompare[selection_name] = selection ? selection.decklists_ID : [];
             }
         }
         console.log("Start Filtering and grouping decklists");
-        const streamlinedDecksToCompare = decksToCompare ? Object.values(decksToCompare).flat() : [];
-        const filtered = filterDecklists(decklists, filterCriteria, streamlinedDecksToCompare);
-        let grouped_decklists = groupDecklists(filtered, groupCriteria);
+        const filtered = filterDecklists(decklists, filterCriteria);
+        let grouped_decklists = groupDecklists(filtered, groupCriteria, decksToCompare);
         let json_response = {
             "grouped_decklists_count": Object.entries(grouped_decklists).map(([group, lists]) => [group, lists.length])
         };
@@ -650,8 +653,16 @@ app.post('/api/decklists/selection/save', async (req, res) => {
         console.log('POST /api/decklists/selection/save - Request received');
         let newSelection = { ...req.body };
         console.log('Selection info:', newSelection);
-
-        const decklists_ID = filterDecklists(decklists, newSelection.filter).map(dl => dl["Metadata"]["List Id"]);
+        let decklistsInSelections = {};
+        for (const name of Object.values(newSelection.selections)) {
+            try {
+                decklistsInSelections[name] = (await loadSelection(name))["decklists_ID"];
+            } catch (error) {
+                console.error(`Error loading selection for ${name} while saving for ${newSelection.name}:`, error.message);
+            }
+        }
+        console.log("Decklists in selections:", decklistsInSelections);
+        const decklists_ID = filterDecklists(decklists, newSelection.filter, decklistsInSelections).map(dl => dl["Metadata"]["List Id"]);
         newSelection["decklists_ID"] = decklists_ID;
         newSelection["n_decklists"] = decklists_ID.length;
         newSelection["date"] = new Date().toISOString();
