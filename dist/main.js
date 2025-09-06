@@ -33768,6 +33768,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   adjustGroupFilters: () => (/* binding */ adjustGroupFilters),
 /* harmony export */   createForm: () => (/* binding */ createForm),
 /* harmony export */   fetchDecklists: () => (/* binding */ fetchDecklists),
+/* harmony export */   fillTable: () => (/* binding */ fillTable),
 /* harmony export */   getDataAndUpdateViz: () => (/* binding */ getDataAndUpdateViz),
 /* harmony export */   getFormData: () => (/* binding */ getFormData),
 /* harmony export */   loadAllSelections: () => (/* binding */ loadAllSelections),
@@ -33806,6 +33807,8 @@ const range_of_colors = [
 const formsContainer = document.getElementById('forms-container');
 const addFormBtn = document.getElementById('add-form');
 const submitAllBtn = document.getElementById('submit-all');
+const tableContainer = document.getElementById('table-container');
+const filterAndHead = document.getElementById('filters-and-head');
 
 let group_index = 0;
 
@@ -35102,6 +35105,136 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
   console.log("Scatter plot drawn successfully.");
 }
 
+function fillTable(data) {
+
+  if (!document.getElementById('filters-container')) {
+    // Add filters above the table
+    const filtersContainer = document.createElement('div');
+    filtersContainer.id = 'filters-container';
+    filtersContainer.style.display = 'flex';
+    filtersContainer.style.gap = '10px';
+    filtersContainer.style.height = '60px';
+
+    filtersContainer.style.overflowX = 'auto'; // Enable horizontal scrolling if needed
+    filtersContainer.style.flexWrap = 'wrap'; // Wrap filters to the next line if they exceed the container width
+
+    const filterWrapper = document.createElement('div');
+    filterWrapper.style.display = 'flex';
+    filterWrapper.style.flexWrap = 'nowrap'; // Prevent wrapping
+    filterWrapper.style.overflowX = 'auto'; // Enable horizontal scrolling
+    filterWrapper.style.gap = '10px'; // Add spacing between filters
+
+    [
+      'ID', 'Event', 'Date', 'Rank', 'Player', 'Hero', 'Classes', 'Talents', 'Played Rounds', 'Top Rounds',
+      'Wins', 'Losses', 'Draws', 'Double Losses'
+    ].forEach(column => {
+      const filterColumnWrapper = document.createElement('div');
+      filterColumnWrapper.style.display = 'flex';
+      filterColumnWrapper.style.flexDirection = 'column';
+      filterColumnWrapper.style.alignItems = 'center';
+      filterColumnWrapper.style.height = '30px'; // Ensure height for each filter
+
+      const columnLabel = document.createElement('span');
+      columnLabel.textContent = column;
+      columnLabel.style.fontWeight = 'bold';
+
+      const filterInput = document.createElement('input');
+      filterInput.type = 'text';
+      filterInput.placeholder = `Filter by ${column}`;
+      filterInput.dataset.column = column.toLowerCase().replace(' ', '_');
+      //filterInput.style.flex = '0 0 150px'; // Ensure inputs have a fixed width
+      filterInput.addEventListener('input', () => {
+        const filterValue = filterInput.value.toLowerCase();
+        Array.from(tbody.rows).forEach(row => {
+          const cell = row.querySelector(`td:nth-child(${thead.querySelectorAll('th').length - 14 + Array.from(thead.querySelectorAll('th')).findIndex(th => th.textContent === column)})`);
+          row.style.display = cell && cell.textContent.toLowerCase().includes(filterValue) ? '' : 'none';
+        });
+      });
+
+      filterColumnWrapper.appendChild(columnLabel);
+      filterColumnWrapper.appendChild(filterInput);
+      filterWrapper.appendChild(filterColumnWrapper);
+    });
+
+    filtersContainer.appendChild(filterWrapper);
+    filterAndHead.appendChild(filtersContainer);
+  }
+
+  // Create the table element
+  const table = document.createElement('table');
+  table.id = 'decklists-table';
+  table.style.borderCollapse = 'collapse';
+  table.style.width = '100%';
+  table.style.whiteSpace = 'nowrap'; // Prevent text wrapping in cells
+
+  // Create the table body
+  const tbody = document.createElement('tbody');
+
+  // Create the table header
+  const thead = document.createElement('thead');
+  thead.style.width = '100%';
+  thead.style.position = 'sticky'; // Make the header sticky
+  thead.style.top = '0'; // Stick to the top
+  thead.style.backgroundColor = '#fff'; // Add background color to avoid overlap
+  thead.style.zIndex = '1'; // Ensure it stays above the rows
+  thead.innerHTML = `
+    <tr>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Selected</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">ID</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Event</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Date</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Rank</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Player</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Hero</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Classes</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Talents</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Wins</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Losses</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Draws</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Double Losses</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Played Rounds</th>
+      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Top Rounds</th>
+    </tr>
+  `;
+
+  // Add rows for each group and decklist
+  Object.entries(data).forEach(([group, decklists]) => {
+    console.log(`Filling table for group: ${group} with ${decklists.length} decklists`);
+    decklists.forEach(decklist => {
+      const row = document.createElement('tr');
+      row.style.textAlign = 'center';
+      row.style.backgroundColor = color(group);
+
+      row.innerHTML = `
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;"><input type="checkbox" class="select-decklist" data-id="${decklist.id}"></td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["List Id"]}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Event"]}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Date"]}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Rank"]}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Player Name"]}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Hero"] || ''}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classes"] || ''}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Talents"] || ''}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Played Rounds"] || 0}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Top Rounds"] || 0}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Wins"] || 0}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Losses"] || 0}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Draws"] || 0}</td>
+        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Double Losses"] || 0}</td>
+      `;
+
+      tbody.appendChild(row);
+    });
+  });
+
+  table.appendChild(tbody);
+
+  // Add the table to the specified element
+  tableContainer.innerHTML = ''; // Clear previous content
+  table.appendChild(thead);
+  tableContainer.appendChild(table);
+}
+
 async function getDataAndUpdateViz(){
   scatter_updated = false;
   try{  
@@ -35143,6 +35276,9 @@ async function getDataAndUpdateViz(){
       } else {
         scatterPlotGraph("#scatter_plot_viz", null, false);
       }
+      // Fill the table
+      fillTable(data["grouped_decklists"]);
+      console.log("All visualizations updated successfully.");
     }
   } catch (error) {
     console.error("Error processing form submission:", error);

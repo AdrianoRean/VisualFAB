@@ -544,6 +544,7 @@ app.post('/api/decklists/calculate', async (req, res) => {
         const filtered = filterDecklists(decklists, filterCriteria);
         let grouped_decklists = groupDecklists(filtered, groupCriteria, decksToCompare);
         let json_response = {
+            "grouped_decklists": grouped_decklists,
             "grouped_decklists_count": Object.entries(grouped_decklists).map(([group, lists]) => [group, lists.length])
         };
         for (const [graph_name, request_data] of Object.entries(graph_requests)) {
