@@ -12,6 +12,43 @@ let all_criterias = {
   "selections": []
 };
 
+var color;
+const range_of_colors = [
+  "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999",
+  "#88CCEE", "#44AA99"
+];
+
+const formsContainer = document.getElementById('forms-container');
+const addFormBtn = document.getElementById('add-form');
+const submitAllBtn = document.getElementById('submit-all');
+
+let group_index = 0;
+
+let selected_matchups = [];
+let scatter_updated = false;
+const graphs_filters = {};
+
+// Listener per aggiungere un nuovo form
+addFormBtn.addEventListener('click', () => {
+  createForm();
+  getDataAndUpdateViz();
+});
+
+// Add this once, outside drawViz
+const tooltip = d3.select("body")
+  .append("div")
+  .attr("id", "d3-tooltip")
+  .style("z-index", "1001")
+  .style("position", "absolute")
+  .style("background", "#fff")
+  .style("border", "1px solid #999")
+  .style("padding", "4px 8px")
+  .style("pointer-events", "none")
+  .style("display", "none");
+
+const deleteButton = document.getElementById('delete-selection');
+const reloadSearchesSelectionsBtn = document.getElementById('reload-searches-selections');
+
 export async function getFormData(){
   try {
     const response = await fetch('http://localhost:3000/api/formData',{
@@ -36,12 +73,7 @@ export async function getFormData(){
 
 await getFormData();
 
-const formsContainer = document.getElementById('forms-container');
-const addFormBtn = document.getElementById('add-form');
-const submitAllBtn = document.getElementById('submit-all');
-
 // Funzione per creare un nuovo form dinamico
-let group_index = 0;
 
 export function createForm(existingGroupName = null) {
   let groupName;
@@ -336,6 +368,28 @@ export function createForm(existingGroupName = null) {
     }
   });
 
+  // Add hover tooltip for save-form-as-selection button
+  const saveFormAsSelectionBtn = formDiv.querySelector('.save-form-as-selection');
+  saveFormAsSelectionBtn.addEventListener('mouseover', (event) => {
+    tooltip
+      .style("display", "block")
+      .html(`Save the current group as a selection (as a static list of Decklists IDs) for future use.
+        <br>
+        You can then select it later from the parallel coordinates graph to use it for matchups analysis and filtering.
+        <br>
+        You can also delete it from the Delete Selection menu.`)
+      .style("left", (event.pageX + 10) + "px")
+      .style("top", (event.pageY - 28) + "px");
+  });
+  saveFormAsSelectionBtn.addEventListener("mousemove", function(event) {
+    tooltip
+      .style("left", (event.pageX + 10) + "px")
+      .style("top", (event.pageY - 28) + "px");
+  });
+  saveFormAsSelectionBtn.addEventListener("mouseout", function() {
+    tooltip.style("display", "none");
+  });
+
   // Add listener to the remove button
   formDiv.querySelector('.remove-form').addEventListener('click', () => {
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
@@ -347,25 +401,8 @@ export function createForm(existingGroupName = null) {
     getDataAndUpdateViz();
   });
 
-  // Update form
-  /*
-  if (existingGroupName) {
-    updateGroupName();
-    updateRankRange();
-    updateHeroSelection();
-    updateFormatSelection();
-    updateDateRange();
-  }
-    */
-
   formsContainer.appendChild(formDiv);
-
-  // Adjust group filtering
-  //all_criterias.groups[all_criterias.group_form_names[g_index]] = all_criterias.groups[all_criterias.group_form_names[g_index - 1]] || {filter : {}};
-  //updateGroupName();
-  //updateHeroSelection();
-  //updateFormatSelection(); 
-  //updateDateRange();
+  
   // If there are matchups in all_criterias, add them to the new group
   if (all_criterias.graphs["parallel_coordinates_matchups"]?.matchups) {
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
@@ -426,22 +463,6 @@ export function addAndUpdateForms(){
   console.log("All criterias after re-adding forms:", JSON.parse(JSON.stringify(all_criterias)));
 }
 
-// Listener per aggiungere un nuovo form
-addFormBtn.addEventListener('click', () => createForm());
-
-// Add this once, outside drawViz
-const tooltip = d3.select("body")
-  .append("div")
-  .attr("id", "d3-tooltip")
-  .style("z-index", "1001")
-  .style("position", "absolute")
-  .style("background", "#fff")
-  .style("border", "1px solid #999")
-  .style("padding", "4px 8px")
-  .style("pointer-events", "none")
-  .style("display", "none");
-
-
 export async function fetchDecklists(criteria) {
   console.log("Fetching decklists with criteria:", criteria);
   try {
@@ -464,9 +485,6 @@ export async function fetchDecklists(criteria) {
     return [];
   }
 }
-
-var color;
-var group_names;
 
 export function setLegend(group_names) {
   console.log("Setting legend with group names:", group_names);
@@ -642,8 +660,6 @@ export function adjustGroupFilters(data, dim, this_graph_filters){
     };
   });
 }
-
-let selected_matchups = [];
 
 export function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   console.log("Initializing parallel coordinates graph...");
@@ -1028,8 +1044,6 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   console.log("Parallel coordinates graph drawn successfully.");
 }
 
-let scatter_updated = false;
-
 export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   console.log("Drawing scatter plot with data:", graph_data);
 
@@ -1043,7 +1057,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   // Set the dimensions and margins of the graph
   const margin = {top: 10, right: 0, bottom: 30, left: 0},
     width = 550 - margin.left - margin.right,
-    height = 550 + button_height + button_margin*2 - margin.top - margin.bottom;
+    height = 400 - margin.top - margin.bottom;
 
   // Set the dimensions of the div container
   scatterPlotDiv.style.width = `${width + margin.left + margin.right}px`;
@@ -1178,9 +1192,12 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
         // Redraw scatter plot with the new data
         if (scatterData) {
           scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+          tooltip.style("display", "none");
         } else {
           console.error("No scatter plot data to display.");
           alert("Failed to fetch scatter plot data. Please try again or change the filters.");
+          scatterPlotGraph(name_of_element, [], false);
+          tooltip.style("display", "none");
         }
       } catch (error) {
         console.error("Error fetching scatter plot data:", error);
@@ -1214,9 +1231,10 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     const svg_height = height + margin.top + margin.bottom - button_height - button_margin * 2;
     const svg = d3.select(name_of_element)
       .append("svg")
-      .attr("width", width - margin.left - margin.right)
+      .attr("width", svg_height)
       .attr("height", svg_height)
       .style("display", "block") // Ensure it appears as a block element
+      .style("margin", "0 auto"); // Center the SVG horizontally within its parent
       //.style("margin-top", `${button_height + button_margin}px`); // Add margin to appear below the button and warning text
 
     scatter_updated = true;
@@ -1231,7 +1249,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     // Set up the X axis
     const x = d3.scaleLinear()
       .domain([metadata.min_x, metadata.max_x])
-      .range([graph_margins * 2, width - margin.right - margin.left - graph_margins*2]);
+      .range([graph_margins * 2, svg_height - margin.right - margin.left - graph_margins*2]);
     svg.append("g")
       .attr("transform", `translate(${0},${svg_height - graph_margins})`)
       .call(d3.axisBottom(x)
@@ -1299,8 +1317,6 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   console.log("Scatter plot drawn successfully.");
 }
 
-const graphs_filters = {};
-
 export async function getDataAndUpdateViz(){
   scatter_updated = false;
   try{  
@@ -1312,7 +1328,7 @@ export async function getDataAndUpdateViz(){
       // color palette
       color = d3.scaleOrdinal()
         .domain(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []))
-        .range(['#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']);
+        .range(range_of_colors);
       setLegend(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []));
       // adjust count display
       console.log("data is:", JSON.parse(JSON.stringify(data)));
@@ -1522,6 +1538,7 @@ export function setupLoadSearchListener() {
       all_criterias.filters = loadedSearch.all_criterias.filters || {};
       all_criterias.groups = loadedSearch.all_criterias.groups || {};
       all_criterias.graphs = loadedSearch.all_criterias.graphs || {};
+      all_criterias.selections = loadedSearch.all_criterias.selections || [];
 
       console.log("Updated all_criterias:", JSON.parse(JSON.stringify(all_criterias)));
 
@@ -1691,7 +1708,6 @@ export async function loadAllSelections() {
 }
 
 // Add event listeners for delete button
-const deleteButton = document.getElementById('delete-selection');
 deleteButton.addEventListener('click', async (event) => {
   event.stopPropagation(); // Prevent the dropdown from opening
   const selectedOption = document.querySelector('#selection-list').value;
@@ -1737,7 +1753,6 @@ export async function reloadSearchesSelections() {
   await loadAllSelections();
 }
 
-const reloadSearchesSelectionsBtn = document.getElementById('reload-searches-selections');
 reloadSearchesSelectionsBtn.addEventListener('click', async () => {
   try {
     await reloadSearchesSelections();

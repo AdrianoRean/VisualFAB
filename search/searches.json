@@ -60,5 +60,91 @@
         }
       }
     }
+  },
+  {
+    "search_name": "Top4 Low Gravy High Arakni",
+    "all_criterias": {
+      "filters": {},
+      "group_form_names": {
+        "0": "Top4 Low Gravy High Arakni"
+      },
+      "groups": {
+        "Top4 Low Gravy High Arakni": {
+          "filter": {
+            "Format": {
+              "precision": "IS",
+              "value": "Classic Constructed"
+            },
+            "Date": {
+              "precision": "DATE",
+              "value": {
+                "min": "2019-01-01T00:00",
+                "max": "2025-09-06T13:52"
+              }
+            },
+            "Rank": {
+              "precision": "RANGE",
+              "value": {
+                "min": "1",
+                "max": "4"
+              }
+            },
+            "Matchups Winrate": {
+              "precision": "COMPOUND",
+              "value": {
+                "Gravy Top8": {
+                  "type": "selection",
+                  "min": 0,
+                  "max": 45.98386702998992
+                },
+                "Arakni 5Lp3d Top8": {
+                  "type": "selection",
+                  "min": 51.04838709677419,
+                  "max": 100
+                }
+              }
+            }
+          }
+        }
+      },
+      "graphs": {
+        "timeseries_winrates": {
+          "type": "timeseries"
+        },
+        "parallel_coordinates_matchups": {
+          "type": "parallel_coordinates",
+          "matchups": [
+            {
+              "name": "Gravy Top8",
+              "type": "selection",
+              "range": {
+                "min": 0,
+                "max": 45.98386702998992
+              }
+            },
+            {
+              "name": "Arakni 5Lp3d Top8",
+              "type": "selection",
+              "range": {
+                "min": 51.04838709677419,
+                "max": 100
+              }
+            },
+            {
+              "name": "Fang, Dracai of Blades",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          ]
+        }
+      },
+      "selections": [
+        "Gravy Top8",
+        "Arakni 5Lp3d Top8"
+      ]
+    }
   }
 ]
