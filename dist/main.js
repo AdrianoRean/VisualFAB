@@ -35206,27 +35206,33 @@ function fillTable(data) {
   thead.style.backgroundColor = '#fff'; // Add background color to avoid overlap
   thead.style.zIndex = '1'; // Ensure it stays above the rows
   thead.style.textAlign = 'center';
+  /*
+  thead.style.borderRight = '1px solid black';
+  thead.style.borderLeft = '1px solid black';
+  thead.style.borderTop = 'none';
+  thead.style.borderBottom = 'none';
+  */
   thead.innerHTML = `
     <tr>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">
         Selected
         <button id="manage-selected-list-table">Manage</button>
       </th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Group</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">ID</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Event</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Date</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Rank</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Player</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Hero</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Classes</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Talents</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Played Rounds</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Top Rounds</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Wins</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Losses</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Draws</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Double Losses</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Group</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">ID</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Event</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Date</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Rank</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Player</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Hero</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Classes</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Talents</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Played Rounds</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Top Rounds</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Wins</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Losses</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Draws</th>
+      <th style="border-right: 2px solid black; border-left: 2px solid black; border-top: none; border-bottom: none;">Double Losses</th>
     </tr>
   `;
 

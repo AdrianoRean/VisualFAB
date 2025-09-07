@@ -1420,6 +1420,12 @@ export function fillTable(data) {
   thead.style.backgroundColor = '#fff'; // Add background color to avoid overlap
   thead.style.zIndex = '1'; // Ensure it stays above the rows
   thead.style.textAlign = 'center';
+  /*
+  thead.style.borderRight = '1px solid black';
+  thead.style.borderLeft = '1px solid black';
+  thead.style.borderTop = 'none';
+  thead.style.borderBottom = 'none';
+  */
   thead.innerHTML = `
     <tr>
       <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">
@@ -1461,19 +1467,31 @@ export function fillTable(data) {
     popup.innerHTML = `
       <h3>Manage Selected List</h3>
       <form id="manage-selected-list-form">
-        <label>
-          <input type="radio" name="manage-option" value="clear" required>
-          Clear Selected List
-        </label><br>
-        <label>
-          <input type="radio" name="manage-option" value="export">
-          Export Selected List
-        </label><br>
-        <label>
-          <input type="radio" name="manage-option" value="analyze">
-          Analyze Selected List
-        </label>
-        <br><br>
+      <label>
+        <input type="checkbox" name="manage-option" value="clear">
+        Clear Selected List
+      </label><br>
+      <label>
+        <input type="checkbox" name="manage-option" value="select">
+        Select All
+      </label><br>
+      <label>
+        <input type="checkbox" name="manage-option" value="remove">
+        Remove from Groups
+      </label><br>
+      <label>
+        <input type="checkbox" name="manage-option" value="add">
+        Add to Groups
+      </label><br>
+      <label>
+        <input type="checkbox" name="manage-option" value="group">
+        Make as new Group
+      </label><br>
+      <label>
+        <input type="checkbox" name="manage-option" value="selection">
+        Make as new Selection
+      </label>
+      <br><br>
       <button type="submit">Submit</button>
       <button type="button" id="cancel-manage-popup">Cancel</button>
       </form>
@@ -1491,10 +1509,40 @@ export function fillTable(data) {
         const checkboxes = document.querySelectorAll('.select-decklist');
         checkboxes.forEach(checkbox => checkbox.checked = false);
         alert('Selected list cleared.');
-      } else if (selectedOption === 'export') {
+      }
+      if (selectedOption === 'select') {
+        const checkboxes = document.querySelectorAll('.select-decklist');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+        alert('All decklists selected.');
+      }
+      if (selectedOption === 'remove') {
+        alert('Removing selected decklists from their groups...');
+        const selectedCheckboxes = document.querySelectorAll('.select-decklist:checked');
+        selectedCheckboxes.forEach(checkbox => {
+          const row = checkbox.closest('tr');
+          const groupName = row.cells[1].textContent.trim(); // Get the group name from the row
+          const listId = row.cells[2].textContent.trim(); // Get the List Id from the row
+
+          if (all_criterias.groups[groupName]) {
+            if (!all_criterias.groups[groupName].filter) {
+              all_criterias.groups[groupName].filter = {};
+            }
+            if (!all_criterias.groups[groupName].filter["List Id"]) {
+              all_criterias.groups[groupName].filter["List Id"] = { precision: "IS-IN", value: [] };
+            }
+            all_criterias.groups[groupName].filter["List Id"].value.push(listId);
+          }
+
+          row.cells[0].style.backgroundColor = 'black'; // Set the row color to black
+        });
+      }
+      if (selectedOption === 'add') {
+      }
+      if (selectedOption === 'export') {
         alert('Exporting selected list...');
         // Add export logic here
-      } else if (selectedOption === 'analyze') {
+      }
+      if (selectedOption === 'analyze') {
         alert('Analyzing selected list...');
         // Add analyze logic here
       }
