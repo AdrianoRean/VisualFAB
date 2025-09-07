@@ -505,14 +505,11 @@ app.get('/api/formData', (req, res) => {
 });
 
 // API endpoint
-app.post('/api/decklists', async (req, res) => {
+app.get('/api/decklists', async (req, res) => {
     try {
-        console.log('POST /api/decklists - Request received');
-        const criteria = req.body;
-        console.log('Filter criteria:', criteria);
-        let filtered = filterDecklists(decklists, criteria);
-        filtered = extractMetadataAndMatchup(filtered);
-        res.json(filtered);
+        console.log('GET /api/decklists - Request received');
+        const groupedDecklists = { "No Group": decklists };
+        res.json(groupedDecklists);
         console.log('Response sent with filtered decklists');
     } catch (error) {
         console.error('Error in /api/decklists:', error.message);

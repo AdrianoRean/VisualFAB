@@ -3,6 +3,7 @@ import * as d3 from "d3";
 let form_heroes, form_formats;
 let selections_names = [];
 let selections = {};
+let allDecklists = [];
 
 let all_criterias = {
   "filters": {},
@@ -910,7 +911,7 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
     svg.append("g")
       .attr("class", `y-axis y-axis-${name}`)
       .attr("transform", `translate(${x(name)}, 0)`)
-      .call(d3.axisLeft(y));
+      .call(d3.axisLeft().scale(y));
   }
       */
   console.log("Data before processing:", JSON.parse(JSON.stringify(data)));
@@ -1340,23 +1341,24 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
 }
 
 export function fillTable(data) {
-
   filterAndHead.innerHTML = ''; // Clear previous content
+
   // Add filters above the table
-  const filtersContainer = document.createElement('div');
-  filtersContainer.id = 'filters-container';
-  filtersContainer.style.display = 'flex';
-  filtersContainer.style.gap = '10px';
-  filtersContainer.style.height = '60px';
+  const filtersContainer = d3.select(filterAndHead)
+    .append('div')
+    .attr('id', 'filters-container')
+    .style('display', 'flex')
+    .style('gap', '10px')
+    .style('height', '60px')
+    .style('overflow-x', 'auto')
+    .style('flex-wrap', 'wrap');
 
-  filtersContainer.style.overflowX = 'auto'; // Enable horizontal scrolling if needed
-  filtersContainer.style.flexWrap = 'wrap'; // Wrap filters to the next line if they exceed the container width
-
-  const filterWrapper = document.createElement('div');
-  filterWrapper.style.display = 'flex';
-  filterWrapper.style.flexWrap = 'nowrap'; // Prevent wrapping
-  filterWrapper.style.overflowX = 'auto'; // Enable horizontal scrolling
-  filterWrapper.style.gap = '10px'; // Add spacing between filters
+  const filterWrapper = filtersContainer
+    .append('div')
+    .style('display', 'flex')
+    .style('flex-wrap', 'nowrap')
+    .style('overflow-x', 'auto')
+    .style('gap', '10px');
 
   const filters = {};
 
@@ -1364,236 +1366,204 @@ export function fillTable(data) {
     'Group', 'ID', 'Event', 'Date', 'Rank', 'Player', 'Hero', 'Classes', 'Talents', 'Played Rounds', 'Top Rounds',
     'Wins', 'Losses', 'Draws', 'Double Losses'
   ].forEach((column, index) => {
-    const filterColumnWrapper = document.createElement('div');
-    filterColumnWrapper.style.display = 'flex';
-    filterColumnWrapper.style.flexDirection = 'column';
-    filterColumnWrapper.style.alignItems = 'center';
-    filterColumnWrapper.style.height = '30px'; // Ensure height for each filter
+    const filterColumnWrapper = filterWrapper
+      .append('div')
+      .style('display', 'flex')
+      .style('flex-direction', 'column')
+      .style('align-items', 'center')
+      .style('height', '30px');
 
-    const columnLabel = document.createElement('span');
-    columnLabel.textContent = column;
-    columnLabel.style.fontWeight = 'bold';
+    filterColumnWrapper
+      .append('span')
+      .text(column)
+      .style('font-weight', 'bold');
 
-    const filterInput = document.createElement('input');
-    filterInput.type = 'text';
-    filterInput.placeholder = `Filter by ${column}`;
-    filterInput.dataset.column = column.toLowerCase().replace(' ', '_');
+    const filterInput = filterColumnWrapper
+      .append('input')
+      .attr('type', 'text')
+      .attr('placeholder', `Filter by ${column}`)
+      .attr('data-column', column.toLowerCase().replace(' ', '_'));
+
     filters[column] = '';
 
-    filterInput.addEventListener('input', () => {
-      filters[column] = filterInput.value.toLowerCase();
-      Array.from(tbody.rows).forEach(row => {
+    filterInput.on('input', function () {
+      filters[column] = this.value.toLowerCase();
+      d3.selectAll('tbody tr').each(function () {
+        const row = d3.select(this);
         let isVisible = true;
         Object.keys(filters).forEach((key, filterIndex) => {
-          const cell = row.cells[filterIndex + 1]; // Adjust index to match the column
-          if (filters[key] && (!cell || !cell.textContent.toLowerCase().includes(filters[key]))) {
+          const cell = row.select(`td:nth-child(${filterIndex + 2})`); // Adjust index to match the column
+          if (filters[key] && (!cell || !cell.text().toLowerCase().includes(filters[key]))) {
             isVisible = false;
           }
         });
-        row.style.display = isVisible ? '' : 'none';
+        row.style('display', isVisible ? '' : 'none');
       });
     });
-
-    filterColumnWrapper.appendChild(columnLabel);
-    filterColumnWrapper.appendChild(filterInput);
-    filterWrapper.appendChild(filterColumnWrapper);
   });
-
-  filtersContainer.appendChild(filterWrapper);
-  filterAndHead.appendChild(filtersContainer);
 
   // Create the table element
-  const table = document.createElement('table');
-  table.id = 'decklists-table';
-  table.style.borderCollapse = 'collapse';
-  table.style.width = '100%';
-  table.style.whiteSpace = 'nowrap'; // Prevent text wrapping in cells
-
-  // Create the table body
-  const tbody = document.createElement('tbody');
+  const table = d3.select(tableContainer)
+    .html('') // Clear previous content
+    .append('table')
+    .attr('id', 'decklists-table')
+    .style('border-collapse', 'collapse')
+    .style('width', '100%')
+    .style('white-space', 'nowrap');
 
   // Create the table header
-  const thead = document.createElement('thead');
-  thead.style.width = '100%';
-  thead.style.position = 'sticky'; // Make the header sticky
-  thead.style.top = '0'; // Stick to the top
-  thead.style.backgroundColor = '#fff'; // Add background color to avoid overlap
-  thead.style.zIndex = '1'; // Ensure it stays above the rows
-  thead.style.textAlign = 'center';
-  /*
-  thead.style.borderRight = '1px solid black';
-  thead.style.borderLeft = '1px solid black';
-  thead.style.borderTop = 'none';
-  thead.style.borderBottom = 'none';
-  */
-  thead.innerHTML = `
-    <tr>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">
-        Selected
-        <button id="manage-selected-list-table">Manage</button>
-      </th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Group</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">ID</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Event</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Date</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Rank</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Player</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Hero</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Classes</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Talents</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Played Rounds</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Top Rounds</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Wins</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Losses</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Draws</th>
-      <th style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">Double Losses</th>
-    </tr>
-  `;
+  const thead = table.append('thead')
+    .style('width', '100%')
+    .style('position', 'sticky')
+    .style('top', '0')
+    .style('background-color', '#fff')
+    .style('z-index', '1')
+    .style('text-align', 'center');
 
-  // Add pop-up menu for "Manage" button
-  const manageButton = thead.querySelector('#manage-selected-list-table');
-  manageButton.addEventListener('click', () => {
-    const popup = document.createElement('div');
-    popup.style.position = 'fixed';
-    popup.style.top = '50%';
-    popup.style.left = '50%';
-    popup.style.transform = 'translate(-50%, -50%)';
-    popup.style.background = '#fff';
-    popup.style.border = '1px solid #ccc';
-    popup.style.padding = '20px';
-    popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
-    popup.style.zIndex = '1000';
+  const headerRow = thead.append('tr');
+  const headers = [
+    'Selected', 'Group', 'ID', 'Event', 'Date', 'Rank', 'Player', 'Hero', 'Classes', 'Talents',
+    'Played Rounds', 'Top Rounds', 'Wins', 'Losses', 'Draws', 'Double Losses'
+  ];
 
-    popup.innerHTML = `
-      <h3>Manage Selected List</h3>
-      <form id="manage-selected-list-form">
-      <label>
-        <input type="checkbox" name="manage-option" value="clear">
-        Clear Selected List
-      </label><br>
-      <label>
-        <input type="checkbox" name="manage-option" value="select">
-        Select All
-      </label><br>
-      <label>
-        <input type="checkbox" name="manage-option" value="remove">
-        Remove from Groups
-      </label><br>
-      <label>
-        <input type="checkbox" name="manage-option" value="add">
-        Add to Groups
-      </label><br>
-      <label>
-        <input type="checkbox" name="manage-option" value="group">
-        Make as new Group
-      </label><br>
-      <label>
-        <input type="checkbox" name="manage-option" value="selection">
-        Make as new Selection
-      </label>
-      <br><br>
-      <button type="submit">Submit</button>
-      <button type="button" id="cancel-manage-popup">Cancel</button>
-      </form>
-    `;
+  headers.forEach((header, index) => {
+    const th = headerRow.append('th')
+      .style('border', '1px solid black')
+      .style('border-top', 'none')
+      .style('border-bottom', 'none')
+      .text(header);
 
-    document.body.appendChild(popup);
+    if (index === 0) {
+      th.append('button')
+        .attr('id', 'manage-selected-list-table')
+        .text('Manage')
+        .on('click', () => {
+          const popup = d3.select('body')
+            .append('div')
+            .style('position', 'fixed')
+            .style('top', '50%')
+            .style('left', '50%')
+            .style('transform', 'translate(-50%, -50%)')
+            .style('background', '#fff')
+            .style('border', '1px solid #ccc')
+            .style('padding', '20px')
+            .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
+            .style('z-index', '1000');
 
-    // Add event listener for form submission
-    const form = popup.querySelector('#manage-selected-list-form');
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const selectedOption = form.elements['manage-option'].value;
+          popup.html(`
+            <h3>Manage Selected List</h3>
+            <form id="manage-selected-list-form">
+              <label><input type="checkbox" name="manage-option" value="clear"> Clear Selected List</label><br>
+              <label><input type="checkbox" name="manage-option" value="select"> Select All</label><br>
+              <label><input type="checkbox" name="manage-option" value="remove"> Remove from Groups</label><br>
+              <label><input type="checkbox" name="manage-option" value="add"> Add to Groups</label><br>
+              <label><input type="checkbox" name="manage-option" value="group"> Make as new Group</label><br>
+              <label><input type="checkbox" name="manage-option" value="selection"> Make as new Selection</label><br><br>
+              <button type="submit">Submit</button>
+              <button type="button" id="cancel-manage-popup">Cancel</button>
+            </form>
+          `);
 
-      if (selectedOption === 'clear') {
-        const checkboxes = document.querySelectorAll('.select-decklist');
-        checkboxes.forEach(checkbox => checkbox.checked = false);
-        alert('Selected list cleared.');
-      }
-      if (selectedOption === 'select') {
-        const checkboxes = document.querySelectorAll('.select-decklist');
-        checkboxes.forEach(checkbox => checkbox.checked = true);
-        alert('All decklists selected.');
-      }
-      if (selectedOption === 'remove') {
-        alert('Removing selected decklists from their groups...');
-        const selectedCheckboxes = document.querySelectorAll('.select-decklist:checked');
-        selectedCheckboxes.forEach(checkbox => {
-          const row = checkbox.closest('tr');
-          const groupName = row.cells[1].textContent.trim(); // Get the group name from the row
-          const listId = row.cells[2].textContent.trim(); // Get the List Id from the row
+          popup.select('#cancel-manage-popup').on('click', () => popup.remove());
+          popup.select('#manage-selected-list-form').on('submit', (event) => {
+            event.preventDefault();
+            const selectedOption = popup.select('input[name="manage-option"]:checked').node()?.value;
 
-          if (all_criterias.groups[groupName]) {
-            if (!all_criterias.groups[groupName].filter) {
-              all_criterias.groups[groupName].filter = {};
+            if (selectedOption === 'clear') {
+              d3.selectAll('.select-decklist').property('checked', false);
+              alert('Selected list cleared.');
             }
-            if (!all_criterias.groups[groupName].filter["List Id"]) {
-              all_criterias.groups[groupName].filter["List Id"] = { precision: "IS-IN", value: [] };
+            if (selectedOption === 'select') {
+              d3.selectAll('.select-decklist').property('checked', true);
+              alert('All decklists selected.');
             }
-            all_criterias.groups[groupName].filter["List Id"].value.push(listId);
-          }
+            if (selectedOption === 'remove') {
+              alert('Removing selected decklists from their groups...');
+              d3.selectAll('.select-decklist:checked').each(function () {
+                const row = d3.select(this.closest('tr'));
+                const groupName = row.select('td:nth-child(2)').text().trim();
+                const listId = row.select('td:nth-child(3)').text().trim();
 
-          row.cells[0].style.backgroundColor = 'black'; // Set the row color to black
+                if (all_criterias.groups[groupName]) {
+                  if (!all_criterias.groups[groupName].filter) {
+                    all_criterias.groups[groupName].filter = {};
+                  }
+                  if (!all_criterias.groups[groupName].filter["List Id"]) {
+                    all_criterias.groups[groupName].filter["List Id"] = { precision: "IS-IN", value: [] };
+                  }
+                  all_criterias.groups[groupName].filter["List Id"].value.push(listId);
+                }
+
+                row.style('background-color', 'black');
+              });
+            }
+
+            popup.remove();
+          });
         });
-      }
-      if (selectedOption === 'add') {
-      }
-      if (selectedOption === 'export') {
-        alert('Exporting selected list...');
-        // Add export logic here
-      }
-      if (selectedOption === 'analyze') {
-        alert('Analyzing selected list...');
-        // Add analyze logic here
-      }
-
-      popup.remove();
-    });
-
-    // Add event listener for cancel button
-    const cancelButton = popup.querySelector('#cancel-manage-popup');
-    cancelButton.addEventListener('click', () => {
-      popup.remove();
-    });
+    }
   });
 
-  // Add rows for each group and decklist
-  Object.entries(data).forEach(([group, decklists]) => {
-    console.log(`Filling table for group: ${group} with ${decklists.length} decklists`);
-    decklists.forEach(decklist => {
-      const row = document.createElement('tr');
-      row.style.textAlign = 'center';
-      row.style.backgroundColor = color(group);
+  // Create the table body
+  const tbody = table.append('tbody');
 
-      row.innerHTML = `
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;"><input type="checkbox" class="select-decklist" data-id="${decklist.id}"></td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${group}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["List Id"]}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Event"]}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Date"]}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Rank"]}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Player Name"]}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Hero"] || ''}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classes"] || ''}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Talents"] || ''}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Played Rounds"] || 0}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Top Rounds"] || 0}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Wins"] || 0}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Losses"] || 0}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Draws"] || 0}</td>
-        <td style="border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none;">${decklist.Metadata["Classic Constructed Double Losses"] || 0}</td>
-      `;
+  // Create a copy of allDecklists and prepare it for easy lookup
+  let updatedDecklists = allDecklists != [] ? JSON.parse(JSON.stringify(allDecklists)) : data;
 
-      tbody.appendChild(row);
-    });
+  updatedDecklists = Object.entries(updatedDecklists).flatMap(([group, decklists]) =>
+        decklists.map(decklist => ({ group, decklist })));
+
+  data = Object.entries(data).flatMap(([group, decklists]) => 
+        decklists.map(decklist => ({ group, decklist })));
+
+  // Update the copy with the decklists in data
+  data.forEach(({ group, decklist }) => {
+    const existingDecklist = updatedDecklists.find(d => d.decklist.Metadata["List Id"] === decklist.Metadata["List Id"]);
+    if (existingDecklist) {
+      existingDecklist.group = group;
+    } else {
+      existingDecklist.group = "No Group";
+    }
   });
 
-  table.appendChild(tbody);
-
-  // Add the table to the specified element
-  tableContainer.innerHTML = ''; // Clear previous content
-  table.appendChild(thead);
-  tableContainer.appendChild(table);
+  // Bind data to rows and update the table
+  const rows = tbody.selectAll('tr')
+    .data(updatedDecklists, d => d.decklist.Metadata["List Id"] // <-- key function
+    )
+    .join(
+        enter => enter.append('tr')
+          .style('text-align', 'center')
+          .style('background-color', d => color(d.group))
+          .call(enter => {
+            enter.selectAll('td')
+              .data(d => [
+                `<input type="checkbox" class="select-decklist" data-id="${d.decklist.Metadata["List Id"]}">`,
+                d.group,
+                d.decklist.Metadata["List Id"],
+                d.decklist.Metadata["Event"],
+                d.decklist.Metadata["Date"],
+                d.decklist.Metadata["Rank"],
+                d.decklist.Metadata["Player Name"],
+                d.decklist.Metadata["Hero"] || '',
+                d.decklist.Metadata["Classes"] || '',
+                d.decklist.Metadata["Talents"] || '',
+                d.decklist.Metadata["Classic Constructed Played Rounds"] || 0,
+                d.decklist.Metadata["Classic Constructed Top Rounds"] || 0,
+                d.decklist.Metadata["Classic Constructed Wins"] || 0,
+                d.decklist.Metadata["Classic Constructed Losses"] || 0,
+                d.decklist.Metadata["Classic Constructed Draws"] || 0,
+                d.decklist.Metadata["Classic Constructed Double Losses"] || 0
+              ])
+              .enter()
+              .append('td')
+              .style('border', '1px solid black')
+              .html(d => d);
+          }),
+        update => update
+          .style('background-color', d => color(d.group))
+          .select('td:nth-child(2)').html(d => d.group), // update group column
+        exit => exit.remove()
+      );
 }
 
 export async function getDataAndUpdateViz(){
@@ -1606,9 +1576,9 @@ export async function getDataAndUpdateViz(){
 
       // color palette
       color = d3.scaleOrdinal()
-        .domain(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []))
+        .domain(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []).concat(["No Group"]))
         .range(range_of_colors);
-      setLegend(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []));
+      setLegend(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []).concat(["No Group"]));
       // adjust count display
       console.log("data is:", JSON.parse(JSON.stringify(data)));
       console.log("all criteria:", JSON.parse(JSON.stringify(all_criterias)));
@@ -1677,6 +1647,7 @@ export async function restartViz(){
     if (Object.keys(group).length > 0) {
       groups[group_name] = {"filter" : group};
     }
+  
   });
 
   let criteria = {
@@ -2049,5 +2020,36 @@ reloadSearchesSelectionsBtn.addEventListener('click', async () => {
 if (Object.keys(all_criterias.group_form_names).length === 0) {
   createForm();
 }
+
+// Fetch all decklists and fill the table
+export async function fetchAndFillAllDecklists() {
+  try {
+    const response = await fetch('http://localhost:3000/api/decklists', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch all decklists. Status: ${response.status}, ${response.statusText}`);
+    }
+
+    allDecklists = await response.json();
+    console.log("Fetched all decklists successfully:", allDecklists);
+
+    // Set the color function for groups and selections
+    color = d3.scaleOrdinal()
+      .domain(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []).concat(["No Group"]))
+      .range(range_of_colors);
+
+    // Fill the table with the fetched decklists
+    fillTable(allDecklists);
+  } catch (error) {
+    console.error("Error fetching all decklists:", error);
+    alert("Failed to fetch all decklists. Check the console for more details.");
+  }
+}
+
+// Fetch and fill the table with all decklists on page load
+await fetchAndFillAllDecklists();
 
 restartViz();
