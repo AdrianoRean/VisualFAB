@@ -1,3 +1,50 @@
 {
-    "idf.pythonInstallPath": "C:\\Espressif\\tools\\idf-python\\3.11.2\\python.exe"
+    "idf.pythonInstallPath": "C:\\Espressif\\tools\\idf-python\\3.11.2\\python.exe",
+    // === Prettier ===
+    "editor.defaultFormatter": "esbenp.prettier-vscode", // Imposta Prettier come formatter predefinito
+    "editor.formatOnSave": true,                         // Formatta automaticamente al salvataggio
+    "prettier.semi": true,                               // Aggiungi punto e virgola
+    "prettier.singleQuote": true,                        // Usa apici singoli invece di doppi
+    "prettier.trailingComma": "es5",                     // Virgole finali dove possibile
+    "prettier.tabWidth": 2,                              // Tabulazione = 2 spazi
+    "prettier.printWidth": 100,                          // Lunghezza massima riga
+    "prettier.arrowParens": "always",                    // Arrow functions sempre con parentesi
+
+    // === Code Folding ===
+    "editor.folding": true,                              // Abilita il code folding
+    "editor.foldingStrategy": "auto",                    // Usa la grammatica per il folding
+    "editor.showFoldingControls": "always",              // Mostra sempre le freccette per collassare
+    "editor.unfoldOnClickAfterEndOfLine": true,          // Espande il blocco cliccando sulla riga finale
+
+    // === JavaScript / TypeScript / React ===
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+
+    // === Suggerimenti e linting ===
+    "editor.quickSuggestions": {
+        "strings": true
+    },
+    "editor.parameterHints.enabled": true,
+    "editor.suggest.showSnippets": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true,
+        "source.organizeImports": true
+    },
+
+    // === Region folding personalizzate ===
+    "files.associations": {
+        "*.js": "javascript"
+    },
+    "editor.foldingImportsByDefault": true,              // Collassa automaticamente gli import
+    "editor.wordWrap": "off"                             // Non spezza le righe automaticamente
 }
