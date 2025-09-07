@@ -1789,6 +1789,7 @@ export function fillTable(data) {
     'Losses',
     'Draws',
     'Double Losses',
+    'List of Cards',
   ];
   const filter_to_header_map = {
     selected: 'Selected',
@@ -2224,22 +2225,23 @@ export function fillTable(data) {
             enter
               .selectAll('td')
               .data((d) => [
-                `<input type="checkbox" class="select-decklist" data-id="${d.decklist.Metadata['List Id']}" style="font-size: 8px;">`,
-                d.group,
-                d.decklist.Metadata['List Id'],
-                d.decklist.Metadata['Event'],
-                d.decklist.Metadata['Player Name'],
-                d.decklist.Metadata['Date'],
-                d.decklist.Metadata['Rank'],
-                d.decklist.Metadata['Hero'] || '',
-                d.decklist.Metadata['Classes'] || '',
-                d.decklist.Metadata['Talents'] || '',
-                d.decklist.Metadata['Classic Constructed Played Rounds'] || 0,
-                d.decklist.Metadata['Classic Constructed Top Rounds'] || 0,
-                d.decklist.Metadata['Classic Constructed Wins'] || 0,
-                d.decklist.Metadata['Classic Constructed Losses'] || 0,
-                d.decklist.Metadata['Classic Constructed Draws'] || 0,
-                d.decklist.Metadata['Classic Constructed Double Losses'] || 0,
+              `<input type="checkbox" class="select-decklist" data-id="${d.decklist.Metadata['List Id']}" style="font-size: 8px;">`,
+              d.group,
+              d.decklist.Metadata['List Id'],
+              d.decklist.Metadata['Event'],
+              d.decklist.Metadata['Player Name'],
+              d.decklist.Metadata['Date'],
+              d.decklist.Metadata['Rank'],
+              d.decklist.Metadata['Hero'] || '',
+              d.decklist.Metadata['Classes'] || '',
+              d.decklist.Metadata['Talents'] || '',
+              d.decklist.Metadata['Classic Constructed Played Rounds'] || 0,
+              d.decklist.Metadata['Classic Constructed Top Rounds'] || 0,
+              d.decklist.Metadata['Classic Constructed Wins'] || 0,
+              d.decklist.Metadata['Classic Constructed Losses'] || 0,
+              d.decklist.Metadata['Classic Constructed Draws'] || 0,
+              d.decklist.Metadata['Classic Constructed Double Losses'] || 0,
+              `<button type="button" class="show-card-list" data-id="${d.decklist.Metadata['List Id']}" style="font-size: 8px;">Show Card List</button>`
               ])
               .enter()
               .append('td')
@@ -2254,6 +2256,81 @@ export function fillTable(data) {
           .html((d) => d.group),
       (exit) => exit.remove()
     );
+
+    // Add listener for "Show Card List" buttons
+    tbody.selectAll('.show-card-list').on('click', function () {
+      const decklistId = this.getAttribute('data-id');
+      const decklist = updatedDecklists.find((d) => d.decklist.Metadata['List Id'] === decklistId)?.decklist;
+      const cardList = decklist?.Cards || [];
+
+      // Create the pop-up container
+      const popup = d3
+        .select('body')
+        .append('div')
+        .style('position', 'fixed')
+        .style('top', '50%')
+        .style('left', '50%')
+        .style('transform', 'translate(-50%, -50%)')
+        .style('background', '#fff')
+        .style('border', '1px solid #ccc')
+        .style('padding', '20px')
+        .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
+        .style('z-index', '1000')
+        .style('max-height', '80%')
+        .style('overflow-y', 'auto')
+        .style('font-size', '10px');
+
+      // Add title
+      popup
+        .append('h3')
+        .text(`List ID: ${decklist.Metadata['List Id']}`)
+        .style('margin-bottom', '10px');
+
+      // Add card list grouped by color with bordered divs
+      const cardListContainer = popup.append('div').style('max-height', '60vh').style('overflow-y', 'auto');
+      const colorBackgrounds = {
+        '': '#e1e1e1ff', // Light grey for no color
+        'Red': '#ffd3d3ff', // Light red
+        'Yel': '#ffffc8ff', // Light yellow
+        'Blu': '#c6e2ffff', // Light blue
+      };
+
+      // Group cards by color
+      const cardsByColor = {};
+      cardList.forEach((card) => {
+        if (!cardsByColor[card.color]) {
+          cardsByColor[card.color] = [];
+        }
+        cardsByColor[card.color].push(card);
+      });
+
+      // Create a block for each color
+      Object.entries(cardsByColor).forEach(([color, cards]) => {
+        const colorBlock = cardListContainer
+          .append('div')
+          .style('margin-bottom', '10px')
+          .style('padding', '10px')
+          .style('border', '1px solid black')
+          .style('background-color', colorBackgrounds[color] || '#d3d3d3'); // Default to light grey if color is not found
+
+        // Add header with color name
+        const colorName = color === '' ? 'Colorless' : color === 'Red' ? 'Red' : color === 'Yel' ? 'Yellow' : color === 'Blu' ? 'Blue' : 'Unknown';
+        colorBlock.append('h4').text(colorName).style('margin-bottom', '5px').style('margin-top', '0px');
+
+        cards.forEach((card) => {
+          colorBlock.append('div').text(`x${card.quantity} - ${card.card_name}`);
+        });
+      });
+
+      // Add close button
+      popup
+        .append('button')
+        .text('Close')
+        .style('margin-top', '10px')
+        .on('click', () => {
+          popup.remove();
+        });
+    });
 }
 
 export function clearCriterias() {
