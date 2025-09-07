@@ -5,34 +5,36 @@
   <title>VisualFAB</title>
 </head>
 <body>
-  <div style="margin-top: 10px;">
-    <h1 style="display: inline; padding: 8px 16px; margin-right: 8px; font-size: 20px;">VisualFAB</h1>  
-    <div class="menu-container" style="display: inline-block; border: 2px solid black; padding: 8px;">
-      <input id="search-name" type="text" placeholder="Enter search name" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-right: 8px;">
-      <button id="save-search" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Save Search</button>
+  <div style="margin: 10px auto; font-size: 9px; text-align: center;"></div>
+    <h1 style="display: inline; padding: 1px 1px; margin-right: 1px; font-size: 11px;">VisualFAB</h1>  
+    <div class="menu-container" style="display: inline-block; border: 1px solid black; padding: 1px;">
+      <input id="search-name" type="text" placeholder="Enter search name" style="display: inline-block; padding: 1px 3px; font-size: 9px; margin-right: 1px;">
+      <button id="save-search" style="display: inline-block; padding: 1px 3px; font-size: 9px;">Save Search</button>
     </div>
-    <div class="menu-container" style="display: inline-block; border: 2px solid black; padding: 8px;">
-      <select id="search-list" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-left: 8px; background-color: white;">
+    <div class="menu-container" style="display: inline-block; border: 1px solid black; padding: 1px;">
+      <select id="search-list" style="display: inline-block; padding: 1px 3px; font-size: 9px; margin-left: 1px; background-color: white;">
         <option value="" disabled selected>Select a search</option>
       </select>
-      <button id="load-search" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Load Search</button>
-      <button id="delete-search" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Delete Search</button>
+      <button id="load-search" style="display: inline-block; padding: 1px 3px; font-size: 9px;">Load Search</button>
+      <button id="delete-search" style="display: inline-block; padding: 1px 3px; font-size: 9px;">Delete Search</button>
     </div>
-    <div class="menu-container" style="display: inline-block; border: 2px solid black; padding: 8px;">
-      <select id="selection-list" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-left: 8px; background-color: white;">
-      <option value="" disabled selected>Select a Selection</option>
+    <div class="menu-container" style="display: inline-block; border: 1px solid black; padding: 1px;">
+      <select id="selection-list" style="display: inline-block; padding: 1px 3px; font-size: 9px; margin-left: 1px; background-color: white;">
+        <option value="" disabled selected>Select a Selection</option>
       </select>
-      <button id="delete-selection" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Delete Selection</button>
+      <button id="delete-selection" style="display: inline-block; padding: 1px 3px; font-size: 9px;">Delete Selection</button>
     </div>
-    <div class="menu-container" style="display: inline-block; border: 2px solid black; padding: 8px;">
-      <button id="submit-all" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-right: 8px;">Restart Exploration</button>
-      <button id="reload-searches-selections" style="display: inline-block; padding: 8px 16px; font-size: 14px; margin-right: 8px;">Reload Searches/Selections</button>
-      <button id="toggle-forms" style="display: inline-block; padding: 8px 16px; font-size: 14px;">Toggle Forms</button>
+    <div class="menu-container" style="display: inline-block; border: 1px solid black; padding: 1px;">
+      <button id="submit-all" style="display: inline-block; padding: 1px 3px; font-size: 9px; margin-right: 1px;">Restart Exploration</button>
+      <button id="reload-searches-selections" style="display: inline-block; padding: 1px 3px; font-size: 9px; margin-right: 1px;">Reload Searches/Selections</button>
+    </div>
+    <div class="menu-container" style="display: inline-block; border: 1px solid black; padding: 1px;">
+      <button id="toggle-forms" style="display: inline-block; padding: 1px 3px; font-size: 9px;">Toggle Forms</button>
+      <button id="add-form" style="display: inline-block; padding: 1px 3px; font-size: 9px; background-color: rgba(0, 128, 0, 0.5);">➕ Add Decklist Group</button><br>
     </div>
   </div>
   <br>
   <div id="form-display">
-    <button id="add-form" style="padding: 5px 5px; font-size: 16px;">➕ Add Decklist Group</button><br>
     <div id="forms-container" style="display: flex; flex-direction: row; flex-wrap: wrap;"></div>
   </div>
   <script>
@@ -41,9 +43,11 @@
       formsContainer.style.display = formsContainer.style.display === 'none' ? 'block' : 'none';
     });
   </script>
-  <div id="timeseries_viz" style="display: inline-block; border: 1px solid black;"></div>
-  <div id="parallel_coordinates_viz" style="display: inline-block; border: 1px solid black;"></div>
-  <div id="scatter_plot_viz" style="display: inline-block; border: 1px solid black;"></div>
+  <div id="visualizations-container" style="text-align: left; width: 100%; border: 1px solid black;">
+    <div id="timeseries_viz" style="display: inline-block; border: 1px solid black;"></div>
+    <div id="parallel_coordinates_viz" style="display: inline-block; border: 1px solid black;"></div>
+    <div id="scatter_plot_viz" style="display: inline-block; border: 1px solid black;"></div>
+  </div>
   <br>
   <br>
   <div id="decklists-table-container" style="border: 1px solid black;">

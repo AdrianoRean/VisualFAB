@@ -33773,6 +33773,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   fillTable: () => (/* binding */ fillTable),
 /* harmony export */   getDataAndUpdateViz: () => (/* binding */ getDataAndUpdateViz),
 /* harmony export */   getFormData: () => (/* binding */ getFormData),
+/* harmony export */   getUpdatedDecklists: () => (/* binding */ getUpdatedDecklists),
 /* harmony export */   loadAllSelections: () => (/* binding */ loadAllSelections),
 /* harmony export */   loadSelection: () => (/* binding */ loadSelection),
 /* harmony export */   loadSelectionNames: () => (/* binding */ loadSelectionNames),
@@ -33793,6 +33794,15 @@ let selections_names = [];
 let selections = {};
 let allDecklists = [];
 let special_decklists = {};
+const noGroupColor = "#44AA99";
+let zoomActive = false;
+let brushActive = false;
+let brush;
+
+// Set the dimensions and margins of the graphs
+const general_margin = { top: 10, right: 0, bottom: 30, left: 0 },
+  general_width = 350 - general_margin.left - general_margin.right,
+  general_height = 300 - general_margin.top - general_margin.bottom;
 
 let all_criterias = {
   "filters": {},
@@ -33805,7 +33815,7 @@ let all_criterias = {
 var color;
 const range_of_colors = [
   "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999",
-  "#88CCEE", "#44AA99"
+  "#88CCEE"
 ];
 
 const formsContainer = document.getElementById('forms-container');
@@ -33833,7 +33843,32 @@ function getGradient(groups) {
   return gradient;
 }
 
-function debounce(func, wait = 300) {
+function ensureSVGGradient(svg, groups, colorFn) {
+  const gradientId = "group-gradient-" + groups.join("-");
+  // Check if gradient already exists
+  if (!svg.select(`#${gradientId}`).node()) {
+    const defs = svg.select("defs").empty() ? svg.append("defs") : svg.select("defs");
+    const linearGradient = defs.append("linearGradient")
+      .attr("id", gradientId)
+      .attr("x1", "0%").attr("y1", "0%")
+      .attr("x2", "0%").attr("y2", "100%"); // vertical
+
+    const n = groups.length;
+    for (let i = 0; i < n; i++) {
+      const start = (i / n) * 100;
+      const end = ((i + 1) / n) * 100;
+      linearGradient.append("stop")
+        .attr("offset", `${start}%`)
+        .attr("stop-color", colorFn(groups[i]));
+      linearGradient.append("stop")
+        .attr("offset", `${end}%`)
+        .attr("stop-color", colorFn(groups[i]));
+    }
+  }
+  return `url(#${gradientId})`;
+}
+
+function debounce(func, wait = 200) {
   let timeout;
   return function(...args) {
     clearTimeout(timeout);
@@ -33905,64 +33940,65 @@ function createForm(existingGroupName = null) {
   const formDiv = document.createElement('form');
   formDiv.id = `group-form-${g_index}`;
   formDiv.style.border = "1px solid black";
-  formDiv.style.margin = "10px";
+  formDiv.style.margin = "5px";
   formDiv.classList.add('form-container');
+  formDiv.style.fontSize = "8px";
 
   formDiv.innerHTML = `
-    <fieldset>
+    <fieldset style="font-size: 8px;">
     <legend>${groupName}
-      <button type="button" class="toggle-form">🔽 Hide</button>
+      <button type="button" class="toggle-form" style="font-size: 8px;">🔽 Hide</button>
     </legend>
-    <div class="form-content-container" style="display: flex; gap: 20px;">
-      <div class="form-section">
+    <div class="form-content-container" style="display: flex; gap: 5px; font-size: 8px;">
+      <div class="form-section" style="font-size: 8px;">
         <label>Group Name:</label><br>
-        <input type="text" name="group-name" value="${moniker}" required>
+        <input type="text" name="group-name" value="${moniker}" required style="font-size: 8px;">
         <label>
-          <br><input type="checkbox" name="dynamic-group-name" checked>
+          <br><input type="checkbox" name="dynamic-group-name" checked style="font-size: 8px;">
           Dynamic
         </label>
         <br><br>
         <label>Rank Range: <span id="rank-help-span" title="Rank 513 means that the player has dropped the tournament">ℹ️</span></label><br>
-          <input type="number" name="rank-min" min="1" max="513" value="1" style="width: 60px;" oninput="this.nextElementSibling.value = this.value"> 
-          <input type="range" name="rank-min" min="1" max="513" value="1" style="width: 120px;" oninput="this.previousElementSibling.value = this.value"> 
+          <input type="number" name="rank-min" min="1" max="513" value="1" style="width: 30px; font-size: 8px;" oninput="this.nextElementSibling.value = this.value"> 
+          <input type="range" name="rank-min" min="1" max="513" value="1" style="width: 60px;" oninput="this.previousElementSibling.value = this.value"> 
           <br>to<br>
-          <input type="number" name="rank-max" min="1" max="513" value="512" style="width: 60px;" oninput="this.nextElementSibling.value = this.value"> 
-          <input type="range" name="rank-max" min="1" max="513" value="512" style="width: 120px;" oninput="this.previousElementSibling.value = this.value"> 
+          <input type="number" name="rank-max" min="1" max="513" value="512" style="width: 30px; font-size: 8px;" oninput="this.nextElementSibling.value = this.value"> 
+          <input type="range" name="rank-max" min="1" max="513" value="512" style="width: 60px;" oninput="this.previousElementSibling.value = this.value"> 
         <br><br>
       </div>
       
-      <div class="form-section">
+      <div class="form-section" style="font-size: 8px;">
         <label>Search Heroes:</label><br>
-        <input type="text" class="hero-search" placeholder="Search heroes..." style="width: 250px;"><br><br>
+        <input type="text" class="hero-search" placeholder="Search heroes..." style="width: 120px; font-size: 8px;"><br><br>
         <label>Heroes:</label><br>
-        <div style="width: 250px; height: 100px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px;">
+        <div style="width: 120px; height: 60px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px; font-size: 8px;">
         ${form_heroes.map(hero => `
-          <label class="hero-label">
-          <input type="checkbox" name="heroes" value="${hero}">
+          <label class="hero-label" style="font-size: 8px;">
+          <input type="checkbox" name="heroes" value="${hero}" style="font-size: 8px;">
           ${hero}
           </label><br>
         `).join('')}
         </div>
         <br>
       </div>
-      <div class="form-section">
+      <div class="form-section" style="font-size: 8px;">
         <label>Format:</label><br>
         ${form_formats.map(format => `
-        <label>
-        <input type="radio" name="format" value="${format}" ${format === 'Classic Constructed' ? 'checked' : ''} required>
+        <label style="font-size: 8px;">
+        <input type="radio" name="format" value="${format}" ${format === 'Classic Constructed' ? 'checked' : ''} required style="font-size: 8px;">
         ${format}
         </label><br>
         `).join('')}
         <br>
         <label>Date Range:</label><br>
-        <input type="datetime-local" name="start-date" value="2019-01-01T00:00" required> to
+        <input type="datetime-local" name="start-date" value="2019-01-01T00:00" required style="font-size: 8px;"> to
         <br>
-        <input type="datetime-local" name="end-date" max="${new Date().toISOString().slice(0, 16)}" value="${new Date().toISOString().slice(0, 16)}" required>
+        <input type="datetime-local" name="end-date" max="${new Date().toISOString().slice(0, 16)}" value="${new Date().toISOString().slice(0, 16)}" required style="font-size: 8px;">
         <br><br>
-        <div id="decklists-analyzed-count-group-${g_index}">n/d</div>
-        <button type="button" class="save-form-as-selection">Save Decklists Group as Selection ℹ️</button>
+        <div id="decklists-analyzed-count-group-${g_index}" style="font-size: 8px;">n/d</div>
+        <button type="button" class="save-form-as-selection" style="font-size: 8px;">Save Decklists Group as Selection ℹ️</button>
         <br>
-        <button type="button" class="remove-form">❌ Remove Decklist Group</button>
+        <button type="button" class="remove-form" style="font-size: 8px;">❌ Remove Decklist Group</button>
       </div>
     </div>
     </fieldset>
@@ -34228,9 +34264,22 @@ function createForm(existingGroupName = null) {
 
   formsContainer.appendChild(formDiv);
   
+  const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+  all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || { filter: {} };
+  const groupFilter = all_criterias.groups[all_criterias.group_form_names[formId]].filter;
+
+  // Set default filters if not present
+  if (!groupFilter.Date) {
+    groupFilter.Date = { precision: "DATE", value: { min: startDateInput.value, max: endDateInput.value } };
+  }
+  if (!groupFilter.Format) {
+    groupFilter.Format = { precision: "IS", value: formDiv.querySelector('input[name="format"]:checked').value };
+  }
+  if (!groupFilter.Rank) {
+    groupFilter.Rank = { precision: "RANGE", value: { min: rankInputs[0].value, max: rankInputs[2].value } };
+  }
   // If there are matchups in all_criterias, add them to the new group
-  if (all_criterias.graphs["parallel_coordinates_matchups"]?.matchups) {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+  if (all_criterias.graphs["parallel_coordinates_matchups"]?.matchups?.length > 0) {
     all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[all_criterias.group_form_names[formId]] || { filter: {} };
     all_criterias.groups[all_criterias.group_form_names[formId]].filter["Matchups Winrate"] = {
       precision: "COMPOUND",
@@ -34318,19 +34367,19 @@ function setLegend(group_names) {
   d3__WEBPACK_IMPORTED_MODULE_0__.select("#legend").remove();
 
   // Create a new legend
-  const legend = d3__WEBPACK_IMPORTED_MODULE_0__.select("body").append("div")
+  const legend = d3__WEBPACK_IMPORTED_MODULE_0__.select("#visualizations-container").append("div")
     .attr("id", "legend")
-    .style("position", "absolute")
-    .style("top", "70px")
-    .style("right", "20px")
+    .style("display", "inline-block")
     .style("background", "rgba(230, 230, 230, 0.9)")
     .style("border", "2px solid #333")
     .style("border-radius", "8px")
-    .style("padding", "20px")
+    .style("margin-left", "5px")
+    .style("padding", "5px")
     .style("box-shadow", "0px 4px 8px rgba(0, 0, 0, 0.2)")
     .style("font-family", "Arial, sans-serif")
-    .style("font-size", "16px")
-    .style("color", "#333");
+    .style("font-size", "10px")
+    .style("position", "relative") // Ensure relative positioning
+    .style("top", (-general_height + 17 * (group_names.length - 1)) + "px"); // Move the legend higher
 
   legend.append("div")
     .style("font-weight", "bold")
@@ -34342,13 +34391,13 @@ function setLegend(group_names) {
       .attr("class", "legend-item")
       .style("display", "flex")
       .style("align-items", "center")
-      .style("margin-bottom", "8px");
+      .style("margin-bottom", "5px");
 
     item.append("span")
       .style("display", "inline-block")
-      .style("width", "14px")
-      .style("height", "14px")
-      .style("margin-right", "10px")
+      .style("width", "10px")
+      .style("height", "10px")
+      .style("margin-right", "5px")
       .style("background-color", color(name))
       .style("border", "1px solid #333")
       .style("border-radius", "50%");
@@ -34358,15 +34407,49 @@ function setLegend(group_names) {
   });
 }
 
+function getUpdatedDecklists(data){
+  // Create a copy of allDecklists and prepare it for easy lookup
+  let updatedDecklists = allDecklists != [] ? JSON.parse(JSON.stringify(allDecklists)) : data;
+
+  updatedDecklists = Object.entries(updatedDecklists).flatMap(([group, decklists]) =>
+        decklists.map(decklist => ({ group: [], decklist })));
+
+  data = Object.entries(data).flatMap(([group, decklists]) => 
+        decklists.map(decklist => ({ group, decklist })));
+
+  // Update the copy with the decklists in data
+  updatedDecklists.forEach(obj => {
+    const dataDecklists = data.filter(d => d.decklist.Metadata["List Id"] === obj.decklist.Metadata["List Id"]);
+    let groups = [];
+    if (dataDecklists.length > 0) {
+      dataDecklists.forEach(existingDecklist => {
+        if (Array.isArray(existingDecklist.group)) {
+          groups = groups.concat(existingDecklist.group);
+        } else {
+          groups.push(existingDecklist.group);
+        }
+      });
+      groups = Array.from(new Set(groups)).filter(g => g !== undefined && g !== null && g !== "");
+      if (groups.length === 0) groups = ["No Group"];
+    } else {
+      groups = ["No Group"];
+    }
+    obj.group = groups;
+  });
+
+  return updatedDecklists;
+}
+
 function timeseriesGraph(name_of_element, data) {
   
   console.log("Drawing visualization with data:", data);
 
   d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element).html(""); // Clear previous viz
   // set the dimensions and margins of the graph
-  var margin = {top: 10, right: 30, bottom: 30, left: 60},
-      width = 460 - margin.left - margin.right,
-      height = 400 - margin.top - margin.bottom;
+
+  const width = parseInt(general_width * 0.7);
+  const height = general_height;
+  const margin = { top: general_margin.top, right: general_margin.right + 10, bottom: general_margin.bottom + 10, left: general_margin.left + 30 };
 
   // append the svg object to the body of the page
   var svg = d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element)
@@ -34385,7 +34468,7 @@ function timeseriesGraph(name_of_element, data) {
     .range([ 0, width ]);
     svg.append("g")
       .attr("transform", "translate(0," + height + ")")
-      .call(d3__WEBPACK_IMPORTED_MODULE_0__.axisBottom(x).ticks(Math.round(width / 50)));
+      .call(d3__WEBPACK_IMPORTED_MODULE_0__.axisBottom(x).ticks(Math.round(width / 100)));
 
   const y = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear()
     .domain([0, 100])
@@ -34489,6 +34572,10 @@ function adjustGroupFilters(data, dim, this_graph_filters){
 function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   console.log("Initializing parallel coordinates graph...");
   console.log("Data for parallel coordinates graph:", JSON.parse(JSON.stringify(data)));
+
+  const margin = general_margin;
+  const width = general_width;
+  const height = general_height;
 
   const button_height = 30;
   const button_margin = 10;
@@ -34663,16 +34750,6 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
   delete data.selections;
   console.log("Dimensions:", dimensions);
   data = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation issues
-
-  var margin = {top: 10, right: 0, bottom: 30, left: 0},
-      width, height;
-
-  if (dimensions.length === 0) {
-    width = 150 - margin.left - margin.right;
-  } else {
-    width = 150 * dimensions.length - margin.left - margin.right;
-  }
-  height = 400 - margin.top - margin.bottom;
   
   // Set the size of the HTML element
   d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element)
@@ -34872,17 +34949,13 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters){
 function scatterPlotGraph(name_of_element, graph_data, active = true) {
   console.log("Drawing scatter plot with data:", graph_data);
 
+  const margin = general_margin;
+  const width = general_width + parseInt(general_width * 0.2);
+  const height = general_height;
+
   let scatterPlotDiv = document.querySelector(name_of_element);
   let warningText;
   let fetchScatterPlotBtn;
-
-  const button_height = 20;
-  const button_margin = 5;
-
-  // Set the dimensions and margins of the graph
-  const margin = {top: 10, right: 0, bottom: 30, left: 0},
-    width = 550 - margin.left - margin.right,
-    height = 400 - margin.top - margin.bottom;
 
   // Set the dimensions of the div container
   scatterPlotDiv.style.width = `${width + margin.left + margin.right}px`;
@@ -34892,50 +34965,168 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
     console.log("Setting fetch button for scatter plot...");
     // Set the height and ensure alignment of the HTML element
     d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element)
-        .style("height", `${height + margin.top + margin.bottom}px`)
-        .style("display", "inline-block")
-        .style("vertical-align", "top");
+      .style("height", `${height + margin.top + margin.bottom}px`)
+      .style("display", "inline-block")
+      .style("vertical-align", "top");
+
+    // Add a div with dotted borders to the left of the parent div
+    const leftDiv = document.createElement("div");
+    leftDiv.style.border = "2px dotted black";
+    leftDiv.style.width = "20%";
+    leftDiv.style.height = "100%";
+    leftDiv.style.position = "relative";
+    leftDiv.style.left = "0";
+    leftDiv.style.top = "0";
+    leftDiv.style.backgroundColor = "#f9f9f9";
+    leftDiv.style.overflowY = "auto";
+    leftDiv.style.padding = "8px";
+    leftDiv.style.boxSizing = "border-box";
+    leftDiv.style.display = "inline-flex";
+    leftDiv.style.flexDirection = "column";
+    leftDiv.style.gap = "8px";
+    leftDiv.style.fontSize = "8px";
+
+    // Append the left div to the parent div
+    scatterPlotDiv.appendChild(leftDiv);
 
     // Add a button to fetch scatter plot data
-    fetchScatterPlotBtn = document.createElement('button');
-    fetchScatterPlotBtn.textContent = 'Update Scatter Plot Data';
-    fetchScatterPlotBtn.style.height = `${button_height}px`;
-    fetchScatterPlotBtn.style.margin = `${button_margin}px`;
-    fetchScatterPlotBtn.id = 'update-scatter-plot-btn';
-    fetchScatterPlotBtn.style.display = 'inline-block';
-    fetchScatterPlotBtn.style.backgroundColor = scatter_updated ? 'green' : 'red';
+    fetchScatterPlotBtn = document.createElement("button");
+    fetchScatterPlotBtn.textContent = "Update Scatter Plot Data";
+    fetchScatterPlotBtn.id = "update-scatter-plot-btn";
+    fetchScatterPlotBtn.style.display = "block";
+    fetchScatterPlotBtn.style.backgroundColor = scatter_updated ? "green" : "red";
+    fetchScatterPlotBtn.style.fontSize = "10px";
 
     // Add hover tooltip
-    fetchScatterPlotBtn.addEventListener('mouseover', (event) => {
+    fetchScatterPlotBtn.addEventListener("mouseover", (event) => {
       tooltip
         .style("display", "block")
         .html(`Heavy calculations, may need several seconds`)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px")
+        .style("left", event.pageX + 10 + "px")
+        .style("top", event.pageY - 28 + "px")
         .style("background-color", "yellow");
     });
-    fetchScatterPlotBtn.addEventListener("mousemove", function(event) {
-          tooltip
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
-        })
-    fetchScatterPlotBtn.addEventListener("mouseout", function() {
-          tooltip.style("display", "none")
-          .style("background-color", "#fff");
-        });
-    scatterPlotDiv.appendChild(fetchScatterPlotBtn);
+    fetchScatterPlotBtn.addEventListener("mousemove", function (event) {
+      tooltip
+        .style("left", event.pageX + 10 + "px")
+        .style("top", event.pageY - 28 + "px");
+    });
+    fetchScatterPlotBtn.addEventListener("mouseout", function () {
+      tooltip.style("display", "none").style("background-color", "#fff");
+    });
+    leftDiv.appendChild(fetchScatterPlotBtn);
 
-    warningText = document.createElement('div');
-    warningText.style.display = scatter_updated ? 'none' : 'inline-block';
-    warningText.textContent = 'PLOT NOT REFLECTING ACTUAL GROUPS';
-    warningText.style.color = 'red';
-    warningText.style.fontWeight = 'bold';
-    warningText.style.marginTop = '5px';
-    warningText.id = 'scatter-plot-warning';
-    scatterPlotDiv.appendChild(warningText);
+    // Add a button to toggle zoom functionality
+    const toggleZoomBtn = document.createElement("button");
+    toggleZoomBtn.textContent = "Toggle Zoom";
+    toggleZoomBtn.id = "toggle-zoom-btn";
+    toggleZoomBtn.style.display = "block";
+    toggleZoomBtn.style.backgroundColor = zoomActive ? "green" : "red";
+    toggleZoomBtn.style.fontSize = "10px";
+
+    // Add hover tooltip for zoom
+    toggleZoomBtn.addEventListener("mouseover", (event) => {
+      tooltip
+      .style("display", "block")
+      .html(`Click to ${zoomActive ? "disable" : "enable"} zoom functionality. You may also press Z key.`)
+      .style("left", event.pageX + 10 + "px")
+      .style("top", event.pageY - 28 + "px");
+    });
+    toggleZoomBtn.addEventListener("mousemove", function (event) {
+      tooltip
+      .style("left", event.pageX + 10 + "px")
+      .style("top", event.pageY - 28 + "px");
+    });
+    toggleZoomBtn.addEventListener("mouseout", function () {
+      tooltip.style("display", "none");
+    });
+
+    function toggleZoomState() {
+      zoomActive = !zoomActive;
+      toggleZoomBtn.style.backgroundColor = zoomActive ? "green" : "red";
+      if (zoomActive && brushActive) {
+        toggleBrushState();
+      }
+    }
+
+    // Add click event listener to toggle zoomActive
+    toggleZoomBtn.addEventListener("click", () => {
+      toggleZoomState();
+    });
+
+    // Add keydown event listener for the Z key to toggle zoomActive
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "z" || event.key === "Z") {
+        toggleZoomState();
+      }
+    });
+
+    // Add a button to toggle brush functionality
+    const toggleBrushBtn = document.createElement("button");
+    toggleBrushBtn.textContent = "Toggle Brush";
+    toggleBrushBtn.id = "toggle-brush-btn";
+    toggleBrushBtn.style.display = "block";
+    toggleBrushBtn.style.backgroundColor = brushActive ? "green" : "red";
+    toggleBrushBtn.style.fontSize = "10px";
+
+    // Add hover tooltip for brush
+    toggleBrushBtn.addEventListener("mouseover", (event) => {
+      tooltip
+      .style("display", "block")
+      .html(`Click to ${brushActive ? "disable" : "enable"} brush functionality. You may also press B key. If brush is active, click functionality is disabled.`)
+      .style("left", event.pageX + 10 + "px")
+      .style("top", event.pageY - 28 + "px");
+    });
+    toggleBrushBtn.addEventListener("mousemove", function (event) {
+      tooltip
+      .style("left", event.pageX + 10 + "px")
+      .style("top", event.pageY - 28 + "px");
+    });
+    toggleBrushBtn.addEventListener("mouseout", function () {
+      tooltip.style("display", "none");
+    });
+
+    function toggleBrushState() {
+      brushActive = !brushActive;
+      const svg = d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element).select("svg");
+      if (brushActive) {
+        svg.select(".brush").select("rect.overlay").style("pointer-events", "all");
+      } else {
+        svg.select(".brush").call(brush.move, null);
+        svg.select(".brush").select("rect.overlay").style("pointer-events", "none");
+      }
+      toggleBrushBtn.style.backgroundColor = brushActive ? "green" : "red";
+      if (brushActive && zoomActive) {
+        toggleZoomState();
+      }
+    }
+
+    // Add click event listener to toggle brushActive
+    toggleBrushBtn.addEventListener("click", () => {
+      toggleBrushState();
+    });
+
+    // Add keydown event listener for the B key to toggle brushActive
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "b" || event.key === "B") {
+        toggleBrushState();
+      }
+    });
+
+    leftDiv.appendChild(toggleZoomBtn);
+    leftDiv.appendChild(toggleBrushBtn);
+
+    warningText = document.createElement("div");
+    warningText.style.display = scatter_updated ? "none" : "block";
+    warningText.textContent = "PLOT DO NOT REFLECTS ACTUAL GROUPS";
+    warningText.style.color = "red";
+    warningText.style.fontWeight = "bold";
+    warningText.id = "scatter-plot-warning";
+    warningText.style.fontSize = "10px";
+    leftDiv.appendChild(warningText);
 
     // Add fetch button listener
-    fetchScatterPlotBtn.addEventListener('click', async () => {
+    fetchScatterPlotBtn.addEventListener("click", async () => {
       try {
         console.log("Fetching scatter plot data...");
         const json_body = {
@@ -34943,33 +35134,33 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
           groups: all_criterias.groups,
           selections: all_criterias.selections,
           graphs: {
-            scatter_plot_card_presence: { "type": "scatter_plot" }
-          }
+            scatter_plot_card_presence: { type: "scatter_plot" },
+          },
         };
         console.log("Sending request with body:", json_body);
 
         // Helper function to show a rotating loading indicator
         function showLoadingIndicator(parentElement) {
-          const loadingIndicator = document.createElement('div');
-          loadingIndicator.className = 'loading-indicator';
-          loadingIndicator.style.border = '4px solid #f3f3f3';
-          loadingIndicator.style.borderTop = '4px solid #3498db';
-          loadingIndicator.style.borderRadius = '50%';
-          loadingIndicator.style.width = '30px';
-          loadingIndicator.style.height = '30px';
-          loadingIndicator.style.animation = 'spin 1s linear infinite';
-          loadingIndicator.style.position = 'absolute';
-          loadingIndicator.style.top = '50%';
-          loadingIndicator.style.left = '50%';
-          loadingIndicator.style.transform = 'translate(-50%, -50%)';
-          loadingIndicator.style.display = 'block';
-          parentElement.style.position = 'relative'; // Ensure parent has relative positioning
+          const loadingIndicator = document.createElement("div");
+          loadingIndicator.className = "loading-indicator";
+          loadingIndicator.style.border = "4px solid #f3f3f3";
+          loadingIndicator.style.borderTop = "4px solid #3498db";
+          loadingIndicator.style.borderRadius = "50%";
+          loadingIndicator.style.width = "30px";
+          loadingIndicator.style.height = "30px";
+          loadingIndicator.style.animation = "spin 1s linear infinite";
+          loadingIndicator.style.position = "absolute";
+          loadingIndicator.style.top = "50%";
+          loadingIndicator.style.left = "50%";
+          loadingIndicator.style.transform = "translate(-50%, -50%)";
+          loadingIndicator.style.display = "block";
+          parentElement.style.position = "relative"; // Ensure parent has relative positioning
           parentElement.appendChild(loadingIndicator);
 
           // Add CSS for the spinning animation if not already added
-          if (!document.querySelector('style#loading-indicator-style')) {
-            const style = document.createElement('style');
-            style.id = 'loading-indicator-style';
+          if (!document.querySelector("style#loading-indicator-style")) {
+            const style = document.createElement("style");
+            style.id = "loading-indicator-style";
             style.innerHTML = `
           @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -34983,18 +35174,25 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
         }
 
         // Show loading indicator
-        const loadingIndicator = showLoadingIndicator(document.querySelector(name_of_element));
+        const loadingIndicator = showLoadingIndicator(
+          document.querySelector(name_of_element)
+        );
         let response = null;
         let scatterData = null;
         try {
-          response = await fetch('http://localhost:3000/api/decklists/calculate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(json_body)
-          });
+          response = await fetch(
+            "http://localhost:3000/api/decklists/calculate",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(json_body),
+            }
+          );
 
           if (!response.ok) {
-            throw new Error(`Failed to fetch scatter plot data. Status: ${response.status}, Status Text: ${response.statusText}`);
+            throw new Error(
+              `Failed to fetch scatter plot data. Status: ${response.status}, Status Text: ${response.statusText}`
+            );
           }
 
           scatterData = await response.json();
@@ -35004,7 +35202,10 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
           d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element).html("");
 
           // Redraw scatter plot with the new data
-          scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+          scatterPlotGraph(
+            name_of_element,
+            scatterData["scatter_plot_card_presence"]
+          );
         } catch (error) {
           console.error("Error fetching scatter plot data:", error);
         } finally {
@@ -35016,11 +35217,16 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
 
         // Redraw scatter plot with the new data
         if (scatterData) {
-          scatterPlotGraph(name_of_element, scatterData["scatter_plot_card_presence"]);
+          scatterPlotGraph(
+            name_of_element,
+            scatterData["scatter_plot_card_presence"]
+          );
           tooltip.style("display", "none");
         } else {
           console.error("No scatter plot data to display.");
-          alert("Failed to fetch scatter plot data. Please try again or change the filters.");
+          alert(
+            "Failed to fetch scatter plot data. Please try again or change the filters."
+          );
           scatterPlotGraph(name_of_element, [], false);
           tooltip.style("display", "none");
         }
@@ -35033,112 +35239,180 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
   if (!scatter_updated) {
     console.log("Scatter plot not updated.");
     warningText = d3__WEBPACK_IMPORTED_MODULE_0__.select(`#scatter-plot-warning`);
-    warningText.text('PLOT NOT REFLECTING ACTUAL GROUPS')
-      .style('color', 'red')
-      .style('font-weight', 'bold')
-      .style('margin-top', '5px')
-      .style('display', 'inline-block');
+    warningText
+      .style("display", "block");
 
     fetchScatterPlotBtn = d3__WEBPACK_IMPORTED_MODULE_0__.select(`#update-scatter-plot-btn`);
-    fetchScatterPlotBtn.style('background-color', 'red');
-  }else{
+    fetchScatterPlotBtn.style("background-color", "red");
+  } else {
     console.log("Scatter plot updated successfully.");
     warningText = d3__WEBPACK_IMPORTED_MODULE_0__.select(`#scatter-plot-warning`);
-    warningText.style('display', 'none');
+    warningText.style("display", "none");
 
     fetchScatterPlotBtn = d3__WEBPACK_IMPORTED_MODULE_0__.select(`#update-scatter-plot-btn`);
-    fetchScatterPlotBtn.style('background-color', 'green');
+    fetchScatterPlotBtn.style("background-color", "green");
   }
 
   if (active) {
-
     // Append the svg object to the specified element
-    const svg_height = height + margin.top + margin.bottom - button_height - button_margin * 2;
+    const svg_height =
+      height + margin.top + margin.bottom;
     const svg = d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element)
       .append("svg")
       .attr("width", svg_height)
       .attr("height", svg_height)
-      .style("display", "block") // Ensure it appears as a block element
-      .style("margin", "0 auto"); // Center the SVG horizontally within its parent
-      //.style("margin-top", `${button_height + button_margin}px`); // Add margin to appear below the button and warning text
+      .style("display", "inline-block") // Ensure it appears as an inline-block element
+      .style("vertical-align", "top") // Align it to the top of the left column
+      .style("margin-left", "10px") // Add some spacing from the left column
+      .style("background-color", "#f0f0f0ff");
 
     scatter_updated = true;
 
     // Extract metadata and remove it from the data object
     const metadata = graph_data.Metadata;
-    //delete data.Metadata;
     const data = graph_data.data;
+    console.log("Data for scatter plot:", data);
 
     const graph_margins = 5;
 
     // Set up the X axis
     const x = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear()
       .domain([metadata.min_x, metadata.max_x])
-      .range([graph_margins * 2, svg_height - margin.right - margin.left - graph_margins*2]);
-    svg.append("g")
+      .range([
+        graph_margins * 2,
+        svg_height - margin.right - margin.left - graph_margins * 4,
+      ]);
+    const xAxis = svg
+      .append("g")
       .attr("transform", `translate(${0},${svg_height - graph_margins})`)
-      .call(d3__WEBPACK_IMPORTED_MODULE_0__.axisBottom(x)
-      .tickSize(0)
-      .tickFormat(''));
-      /*
-      .append("text")
-      .attr("x", width / 2)
-      .attr("y", 40)
-      .attr("fill", "black")
-      .style("text-anchor", "middle")
-      .text(metadata.x_label);
-      */
+      .call(d3__WEBPACK_IMPORTED_MODULE_0__.axisBottom(x).tickSize(0).tickFormat(""));
 
     // Set up the Y axis
     const y = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear()
       .domain([metadata.min_y, metadata.max_y])
       .range([svg_height - graph_margins * 4, 0]);
-    svg.append("g")
-      .attr("transform", `translate(${graph_margins*2},${graph_margins*3})`)
-      .call(d3__WEBPACK_IMPORTED_MODULE_0__.axisLeft(y)
-      .tickSize(0)
-      .tickFormat(''));
-      /*
-      .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("x", -svg_height / 2)
-      .attr("y", -40)
-      .attr("fill", "black")
-      .style("text-anchor", "middle")
-      .text(metadata.y_label);
-      */
+    const yAxis = svg
+      .append("g")
+      .attr("transform", `translate(${graph_margins * 2},${graph_margins * 3})`)
+      .call(d3__WEBPACK_IMPORTED_MODULE_0__.axisLeft(y).tickSize(0).tickFormat(""));
+
+    // Add a clipPath to prevent points from being drawn outside the chart area
+    const circleRadius = 5;
+    svg
+      .append("defs")
+      .append("clipPath")
+      .attr("id", "clip")
+      .append("rect")
+      .attr("width", svg_height - margin.right - margin.left + 2 * circleRadius)
+      .attr("height", svg_height - graph_margins * 4 + 2 * circleRadius)
+      .attr("x", graph_margins * 2 - circleRadius)
+      .attr("y", graph_margins * 3 - circleRadius);
 
     // Add points
-    svg.selectAll(`scatter-circle`)
-    .data(data, d => d[2].id) // Use d[2].id as the key
-    .enter()
-    .append("circle")
-    .attr("cx", d => x(d[0]))
-    .attr("cy", d => y(d[1]))
-    .attr("r", 5)
-    .attr("transform", `translate(0,${graph_margins*3})`)
-    .attr("class", d => `scatter-circle group-${d[2].group.replaceAll(" ", "")}`)
-    .attr("fill", d => color(d[2].group))
-    .on("mouseover", function (event, d) {
-      d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("fill", "red");
-      tooltip
-      .style("display", "block")
-      .html(`Group: ${d[2].group}<br>Rank: ${d[2].rank}<br>Event: ${d[2].event}<br>Hero: ${d[2].hero}<br>ID: ${d[2].id}`)
-      .style("left", (event.pageX + 10) + "px")
-      .style("top", (event.pageY - 28) + "px");
-    })
-    .on("mousemove", function (event) {
-      tooltip
-      .style("left", (event.pageX + 10) + "px")
-      .style("top", (event.pageY - 28) + "px");
-    })
-    .on("mouseout", function (event, d) {
-      d3__WEBPACK_IMPORTED_MODULE_0__.select(this).attr("fill", color(d[2].group));
-      tooltip.style("display", "none");
-    });
+    const pointsGroup = svg
+      .append("g")
+      .attr("clip-path", "url(#clip)")
+      .selectAll(`scatter-circle`)
+      .data(data, (d) => d[2].id)
+      .enter()
+      .append("circle")
+      .attr("cx", (d) => x(d[0]))
+      .attr("cy", (d) => y(d[1]))
+      .attr("r", 5)
+      .attr("transform", `translate(0,${graph_margins * 3})`)
+      .attr(
+        "class",
+        (d) =>
+          `scatter-circle ${d[2].group
+            .map((g) => `group-${g.replaceAll(" ", "")}`)
+            .join(" ")}`
+      )
+      .attr("fill", (d) => ensureSVGGradient(svg, d[2].group, color))
+      .on("mouseover", function (event, d) {
+        tooltip
+          .style("display", "block")
+          .html(
+            `Groups: ${d[2].group.join(", ")}<br>Rank: ${d[2].rank}<br>Event: ${d[2].event}<br>Hero: ${d[2].hero}<br>ID: ${d[2].id}`
+          )
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY - 28 + "px");
+      })
+      .on("mousemove", function (event) {
+        tooltip
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY - 28 + "px");
+      })
+      .on("mouseout", function () {
+        tooltip.style("display", "none");
+      })
+      .on("click", function (event, d) {
+        event.stopPropagation(); // Prevent triggering other click events
+        const circle = d3__WEBPACK_IMPORTED_MODULE_0__.select(this);
+        const isSelected = circle.classed("selected");
+
+        if (isSelected) {
+          circle.classed("selected", false).style("stroke", null);
+          d3__WEBPACK_IMPORTED_MODULE_0__.select(`input[data-id="${d[2].id}"]`).property("checked", false);
+        } else {
+          circle.classed("selected", true).style("stroke", "black");
+          d3__WEBPACK_IMPORTED_MODULE_0__.select(`input[data-id="${d[2].id}"]`).property("checked", true);
+        }
+      });
+
+    // Add brush functionality
+    brush = d3__WEBPACK_IMPORTED_MODULE_0__.brush()
+      .extent([
+        [0, 0],
+        [svg_height, svg_height],
+      ])
+      .on("start brush", (event) => {
+        const selection = event.selection;
+        if (selection) {
+          const [[x0, y0], [x1, y1]] = selection;
+
+          pointsGroup.each(function (d) {
+            const cx = x(d[0]);
+            const cy = y(d[1]);
+            const isBrushed = cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+
+            d3__WEBPACK_IMPORTED_MODULE_0__.select(this)
+              .classed("selected", isBrushed)
+              .style("stroke", isBrushed ? "black" : null);
+
+            d3__WEBPACK_IMPORTED_MODULE_0__.select(`input[data-id="${d[2].id}"]`).property(
+              "checked",
+              isBrushed
+            );
+          });
+        }
+      });
+
+    svg.append("g").attr("class", "brush").call(brush);
+    svg.select(".brush").select("rect.overlay").style("pointer-events", "none");
+
+    // Add zoom functionality
+    const zoom = d3__WEBPACK_IMPORTED_MODULE_0__.zoom()
+      .scaleExtent([1, 10]) // Zoom scale
+      .translateExtent([
+      [0, 0],
+      [svg_height, svg_height],
+      ]) // Pan boundaries
+      .on("zoom", (event) => {
+      if (zoomActive) {
+        const transform = event.transform;
+        const newX = transform.rescaleX(x);
+        const newY = transform.rescaleY(y);
+
+        xAxis.call(d3__WEBPACK_IMPORTED_MODULE_0__.axisBottom(newX).tickSize(0).tickFormat(""));
+        yAxis.call(d3__WEBPACK_IMPORTED_MODULE_0__.axisLeft(newY).tickSize(0).tickFormat(""));
+
+        pointsGroup.attr("cx", (d) => newX(d[0])).attr("cy", (d) => newY(d[1]));
+      }
+      });
+
+    svg.call(zoom);
   }
 
-    console.log("Scatter plot children are: ", scatterPlotDiv.children);
   console.log("Scatter plot drawn successfully.");
 }
 
@@ -35375,34 +35649,7 @@ function fillTable(data) {
   // Create the table body
   const tbody = table.append('tbody');
 
-  // Create a copy of allDecklists and prepare it for easy lookup
-  let updatedDecklists = allDecklists != [] ? JSON.parse(JSON.stringify(allDecklists)) : data;
-
-  updatedDecklists = Object.entries(updatedDecklists).flatMap(([group, decklists]) =>
-        decklists.map(decklist => ({ group: [], decklist })));
-
-  data = Object.entries(data).flatMap(([group, decklists]) => 
-        decklists.map(decklist => ({ group, decklist })));
-
-  // Update the copy with the decklists in data
-  updatedDecklists.forEach(obj => {
-    const dataDecklists = data.filter(d => d.decklist.Metadata["List Id"] === obj.decklist.Metadata["List Id"]);
-    let groups = [];
-    if (dataDecklists.length > 0) {
-      dataDecklists.forEach(existingDecklist => {
-        if (Array.isArray(existingDecklist.group)) {
-          groups = groups.concat(existingDecklist.group);
-        } else {
-          groups.push(existingDecklist.group);
-        }
-      });
-      groups = Array.from(new Set(groups)).filter(g => g !== undefined && g !== null && g !== "");
-      if (groups.length === 0) groups = ["No Group"];
-    } else {
-      groups = ["No Group"];
-    }
-    obj.group = groups;
-  });
+  const updatedDecklists = getUpdatedDecklists(data);
 
   // Bind data to rows and update the table
   tbody.selectAll('tr')
@@ -35480,7 +35727,7 @@ async function getDataAndUpdateViz(){
 
       // color palette
       color = d3__WEBPACK_IMPORTED_MODULE_0__.scaleOrdinal()
-        .domain(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []).concat(["No Group"]))
+        .domain(Object.values(["No Group"].concat(all_criterias["group_form_names"])).concat(all_criterias.selections ? all_criterias.selections : []))
         .range(range_of_colors);
       setLegend(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []).concat(["No Group"]));
       // adjust count display
@@ -35504,6 +35751,7 @@ async function getDataAndUpdateViz(){
       if (graphs_filters["parallel_coordinates_matchups"] === undefined) {
         graphs_filters["parallel_coordinates_matchups"] = {};
       }
+      d3__WEBPACK_IMPORTED_MODULE_0__.select("#parallel_coordinates_viz").html(""); // Clear previous parallel coordinates visualization if present
       parallelCoordinatesGraph("#parallel_coordinates_viz", data["parallel_coordinates_matchups"], graphs_filters["parallel_coordinates_matchups"]);
       if (data["scatter_plot_card_presence"]) {
         d3__WEBPACK_IMPORTED_MODULE_0__.select("#scatter_plot_viz").html(""); // Clear previous scatter plot visualization if present
@@ -35942,8 +36190,8 @@ async function fetchAndFillAllDecklists() {
 
     // Set the color function for groups and selections
     color = d3__WEBPACK_IMPORTED_MODULE_0__.scaleOrdinal()
-      .domain(Object.values(all_criterias["group_form_names"]).concat(all_criterias.selections ? all_criterias.selections : []).concat(["No Group"]))
-      .range(range_of_colors);
+      .domain(Object.values(["No Group"].concat(all_criterias["group_form_names"])).concat(all_criterias.selections ? all_criterias.selections : []))
+      .range(range_of_colors);// Ensure "No Group" always has the same color
 
     // Fill the table with the fetched decklists
     fillTable(allDecklists);

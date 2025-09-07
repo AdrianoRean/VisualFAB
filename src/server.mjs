@@ -312,11 +312,14 @@ function parallelMatchups(grouped_decklists, matchups_array, decklistsToCompare=
 
 function constructCardMatrix(grouped_decklists) {
     console.log('Constructing card matrix from grouped decklists');
-    const decklists = Object.values(grouped_decklists).flat();
+    const decklists = Array.from(new Set(Object.values(grouped_decklists).flat())).filter(d => d.Cards.length > 0);
     const decklistToGroup = {};
     Object.entries(grouped_decklists).forEach(([group, lists]) => {
         lists.forEach(decklist => {
-            decklistToGroup[decklist.Metadata["List Id"]] = group;
+            if (!decklistToGroup[decklist.Metadata["List Id"]]) {
+                decklistToGroup[decklist.Metadata["List Id"]] = [];
+            }
+            decklistToGroup[decklist.Metadata["List Id"]].push(group);
         });
     });
     console.log('Constructing card matrix from decklists');
@@ -347,7 +350,7 @@ function constructCardMatrix(grouped_decklists) {
             event: decklist.Metadata.Event,
             rank: decklist.Metadata.Rank,
             hero: decklist.Metadata.Hero,
-            group: decklistToGroup[decklist.Metadata["List Id"]] || "Ungrouped"
+            group: decklistToGroup[decklist.Metadata["List Id"]] != [] ? decklistToGroup[decklist.Metadata["List Id"]] : ["No Group"]
         };
         decklist.Cards.forEach(card => {
             const card_name = (card.card_name + " " + card.color).trim();
