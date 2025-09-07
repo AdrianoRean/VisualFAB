@@ -4,6 +4,7 @@ let form_heroes, form_formats;
 let selections_names = [];
 let selections = {};
 let allDecklists = [];
+let special_decklists = {};
 
 let all_criterias = {
   "filters": {},
@@ -30,6 +31,19 @@ let group_index = 0;
 let selected_matchups = [];
 let scatter_updated = false;
 const graphs_filters = {};
+
+function getGradient(groups) {
+  const n = groups.length;
+  const percent = 100 / n;
+  let stops = [];
+  for (let i = 0; i < n; i++) {
+    const start = i * percent;
+    const end = (i + 1) * percent;
+    stops.push(`${color(groups[i])} ${start}%`, `${color(groups[i])} ${end}%`);
+  }
+  const gradient = `linear-gradient(0deg, ${stops.join(', ')})`;
+  return gradient;
+}
 
 function debounce(func, wait = 300) {
   let timeout;
@@ -1489,14 +1503,80 @@ export function fillTable(data) {
                     all_criterias.groups[groupName].filter = {};
                   }
                   if (!all_criterias.groups[groupName].filter["List Id"]) {
-                    all_criterias.groups[groupName].filter["List Id"] = { precision: "IS-IN", value: [] };
+                    all_criterias.groups[groupName].filter["List Id"] = { precision: "IS-NOT-IN", value: [] };
                   }
                   all_criterias.groups[groupName].filter["List Id"].value.push(listId);
                 }
 
-                row.style('background-color', 'black');
+                special_decklists[listId] = { "group": selectedGroupName , type: "removed" };
               });
             }
+            if (selectedOption === 'add') {
+              const groupNames = Object.keys(all_criterias.groups);
+                const groupName = document.createElement('select');
+                groupName.id = 'group-name-dropdown';
+                groupName.style.margin = '10px';
+                groupNames.forEach(name => {
+                  const option = document.createElement('option');
+                  option.value = name;
+                  option.textContent = name;
+                  groupName.appendChild(option);
+                });
+
+                const group_popup = document.createElement('div');
+                group_popup.style.position = 'fixed';
+                group_popup.style.top = '50%';
+                group_popup.style.left = '50%';
+                group_popup.style.transform = 'translate(-50%, -50%)';
+                group_popup.style.background = '#fff';
+                group_popup.style.border = '1px solid #ccc';
+                group_popup.style.padding = '20px';
+                group_popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
+                group_popup.style.zIndex = '1000';
+
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Submit';
+                submitButton.style.margin = '10px';
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Cancel';
+                cancelButton.style.margin = '10px';
+
+                group_popup.appendChild(document.createTextNode('Select a group to add selected decklists to:'));
+                group_popup.appendChild(groupName);
+                group_popup.appendChild(submitButton);
+                group_popup.appendChild(cancelButton);
+                document.body.appendChild(group_popup);
+
+                cancelButton.addEventListener('click', () => {
+                  group_popup.remove();
+                });
+
+                submitButton.addEventListener('click', () => {
+                  const selectedGroupName = groupName.value;
+                  if (selectedGroupName) {
+                    d3.selectAll('.select-decklist:checked').each(function () {
+                    const row = d3.select(this.closest('tr'));
+                    const listId = row.select('td:nth-child(3)').text().trim();
+
+                    if (all_criterias.groups[selectedGroupName]) {
+                      if (!all_criterias.groups[selectedGroupName].filter) {
+                        all_criterias.groups[selectedGroupName].filter = {};
+                      }
+                      if (!all_criterias.groups[selectedGroupName].filter["List Id"]) {
+                        all_criterias.groups[selectedGroupName].filter["List Id"] = { precision: "IS-IN", value: [] };
+                      }
+                        all_criterias.groups[selectedGroupName].filter["List Id"].value.push(listId);
+                    }
+                    special_decklists[listId] = { "group": selectedGroupName , type: "added" };
+                  });
+                  group_popup.remove();
+                  
+                  } else {
+                    alert('Please select a group.');
+                  }
+                });
+              }
 
             popup.remove();
           });
@@ -1511,29 +1591,40 @@ export function fillTable(data) {
   let updatedDecklists = allDecklists != [] ? JSON.parse(JSON.stringify(allDecklists)) : data;
 
   updatedDecklists = Object.entries(updatedDecklists).flatMap(([group, decklists]) =>
-        decklists.map(decklist => ({ group, decklist })));
+        decklists.map(decklist => ({ group: [], decklist })));
 
   data = Object.entries(data).flatMap(([group, decklists]) => 
         decklists.map(decklist => ({ group, decklist })));
 
   // Update the copy with the decklists in data
-  data.forEach(({ group, decklist }) => {
-    const existingDecklist = updatedDecklists.find(d => d.decklist.Metadata["List Id"] === decklist.Metadata["List Id"]);
-    if (existingDecklist) {
-      existingDecklist.group = group;
+  updatedDecklists.forEach(obj => {
+    const dataDecklists = data.filter(d => d.decklist.Metadata["List Id"] === obj.decklist.Metadata["List Id"]);
+    let groups = [];
+    if (dataDecklists.length > 0) {
+      dataDecklists.forEach(existingDecklist => {
+        if (Array.isArray(existingDecklist.group)) {
+          groups = groups.concat(existingDecklist.group);
+        } else {
+          groups.push(existingDecklist.group);
+        }
+      });
+      groups = Array.from(new Set(groups)).filter(g => g !== undefined && g !== null && g !== "");
+      if (groups.length === 0) groups = ["No Group"];
     } else {
-      existingDecklist.group = "No Group";
+      groups = ["No Group"];
     }
+    obj.group = groups;
   });
 
   // Bind data to rows and update the table
-  const rows = tbody.selectAll('tr')
-    .data(updatedDecklists, d => d.decklist.Metadata["List Id"] // <-- key function
+  tbody.selectAll('tr')
+    .data(updatedDecklists, d => d.decklist.Metadata["List Id"] 
     )
     .join(
         enter => enter.append('tr')
           .style('text-align', 'center')
-          .style('background-color', d => color(d.group))
+          .style("background", d => getGradient(d.group))
+          .style('height', '20px')
           .call(enter => {
             enter.selectAll('td')
               .data(d => [
@@ -1556,18 +1647,43 @@ export function fillTable(data) {
               ])
               .enter()
               .append('td')
-              .style('border', '1px solid black')
+              .style('border', '2px solid black')
               .html(d => d);
           }),
         update => update
-          .style('background-color', d => color(d.group))
-          .select('td:nth-child(2)').html(d => d.group), // update group column
+          .style("background", d => getGradient(d.group))
+          .select('td:nth-child(2)').html(d => d.group),
         exit => exit.remove()
       );
 }
 
+export function clearCriterias() {
+  function cleanFilters(filters) {
+    Object.keys(filters).forEach(key => {
+      if (filters[key].precision === "IS-IN" || filters[key].precision === "IS-NOT-IN") {
+        if (Array.isArray(filters[key].value) && filters[key].value.length === 0) {
+          delete filters[key];
+        }
+      } else if (typeof filters[key] === "object") {
+        cleanFilters(filters[key]); // Recursively clean nested filters
+      }
+    });
+  }
+
+  Object.keys(all_criterias.filters).forEach(key => {
+    cleanFilters(all_criterias.filters[key]);
+  });
+
+  Object.keys(all_criterias.groups).forEach(groupName => {
+    if (all_criterias.groups[groupName]?.filter) {
+      cleanFilters(all_criterias.groups[groupName].filter);
+    }
+  });
+}
+
 export async function getDataAndUpdateViz(){
   scatter_updated = false;
+  clearCriterias();
   try{  
     const data = await fetchDecklists(all_criterias);
     if (data.length === 0) {
@@ -1820,7 +1936,7 @@ export function setupSaveSearchListener() {
       const response = await fetch('http://localhost:3000/api/decklists/search/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ search_name: searchName, all_criterias })
+        body: JSON.stringify({ search_name: searchName, all_criterias, special_decklists })
       });
 
       if (!response.ok) {

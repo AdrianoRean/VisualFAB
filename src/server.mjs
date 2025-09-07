@@ -34,6 +34,8 @@ function filterDecklists(decklists, criteria, decksToCompare = {}) {
                 return decklist.Metadata[key] === value.value;
             }else if (value.precision === 'IS-IN') {
                 return value.value.some(item => item === decklist.Metadata[key]);
+            }else if (value.precision === 'IS-NOT-IN') {
+                return !value.value.some(item => item === decklist.Metadata[key]);
             } else if (value.precision === 'COMPOUND') {
                 if (key === 'Matchups Winrate') {
                     let flag = true;
