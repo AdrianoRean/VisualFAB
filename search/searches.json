@@ -22,54 +22,15 @@
     }
   },
   {
-    "search_name": "Dori Hatchets to Kassai",
+    "search_name": "Dori and Kassai",
     "all_criterias": {
       "filters": {},
       "group_form_names": {
-        "0": "Dorinthea Ironsong",
-        "1": "Kassai of the Golden Sand"
+        "0": "Kassai of the Golden Sand",
+        "1": "Dorinthea Ironsong"
       },
       "groups": {
-        "Dorinthea Ironsong": {
-          "filter": {
-            "Hero": {
-              "precision": "IS-IN",
-              "value": [
-                "Dorinthea Ironsong"
-              ]
-            }
-          }
-        },
         "Kassai of the Golden Sand": {
-          "filter": {
-            "Hero": {
-              "precision": "IS-IN",
-              "value": [
-                "Kassai of the Golden Sand"
-              ]
-            }
-          }
-        }
-      },
-      "graphs": {
-        "timeseries_winrates": {
-          "type": "timeseries"
-        },
-        "parallel_coordinates_matchups": {
-          "type": "parallel_coordinates"
-        }
-      }
-    }
-  },
-  {
-    "search_name": "Top4 Low Gravy High Arakni",
-    "all_criterias": {
-      "filters": {},
-      "group_form_names": {
-        "0": "Top4 Low Gravy High Arakni"
-      },
-      "groups": {
-        "Top4 Low Gravy High Arakni": {
           "filter": {
             "Format": {
               "precision": "IS",
@@ -79,30 +40,49 @@
               "precision": "DATE",
               "value": {
                 "min": "2019-01-01T00:00",
-                "max": "2025-09-06T13:52"
+                "max": "2025-09-07T16:03"
               }
             },
             "Rank": {
               "precision": "RANGE",
               "value": {
-                "min": "1",
-                "max": "4"
+                "min": 1,
+                "max": 512
               }
             },
-            "Matchups Winrate": {
-              "precision": "COMPOUND",
+            "Hero": {
+              "precision": "IS-IN",
+              "value": [
+                "Kassai of the Golden Sand"
+              ]
+            }
+          }
+        },
+        "Dorinthea Ironsong": {
+          "filter": {
+            "Date": {
+              "precision": "DATE",
               "value": {
-                "Gravy Top8": {
-                  "type": "selection",
-                  "min": 0,
-                  "max": 45.98386702998992
-                },
-                "Arakni 5Lp3d Top8": {
-                  "type": "selection",
-                  "min": 51.04838709677419,
-                  "max": 100
-                }
+                "min": "2019-01-01T00:00",
+                "max": "2025-09-07T16:04"
               }
+            },
+            "Format": {
+              "precision": "IS",
+              "value": "Classic Constructed"
+            },
+            "Rank": {
+              "precision": "RANGE",
+              "value": {
+                "min": "1",
+                "max": "512"
+              }
+            },
+            "Hero": {
+              "precision": "IS-IN",
+              "value": [
+                "Dorinthea Ironsong"
+              ]
             }
           }
         }
@@ -113,38 +93,11 @@
         },
         "parallel_coordinates_matchups": {
           "type": "parallel_coordinates",
-          "matchups": [
-            {
-              "name": "Gravy Top8",
-              "type": "selection",
-              "range": {
-                "min": 0,
-                "max": 45.98386702998992
-              }
-            },
-            {
-              "name": "Arakni 5Lp3d Top8",
-              "type": "selection",
-              "range": {
-                "min": 51.04838709677419,
-                "max": 100
-              }
-            },
-            {
-              "name": "Fang, Dracai of Blades",
-              "type": "hero",
-              "range": {
-                "min": 0,
-                "max": 100
-              }
-            }
-          ]
+          "matchups": []
         }
       },
-      "selections": [
-        "Gravy Top8",
-        "Arakni 5Lp3d Top8"
-      ]
-    }
+      "selections": []
+    },
+    "special_decklists": {}
   }
 ]

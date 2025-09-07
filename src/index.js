@@ -55,9 +55,11 @@ function getGradient(groups) {
 }
 
 function ensureSVGGradient(svg, groups, colorFn) {
-  const gradientId = "group-gradient-" + groups.join("-");
+  const sanitizedGroups = groups.map(group => group.replace(/\s+/g, "-")); // Replace spaces with hyphens
+  const gradientId = "group-gradient-" + sanitizedGroups.join("-");
   // Check if gradient already exists
   if (!svg.select(`#${gradientId}`).node()) {
+    console.log("Gradient not found, creating new one with ID:", gradientId);
     const defs = svg.select("defs").empty() ? svg.append("defs") : svg.select("defs");
     const linearGradient = defs.append("linearGradient")
       .attr("id", gradientId)
@@ -1634,65 +1636,196 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
 
 export function fillTable(data) {
   filterAndHead.innerHTML = ''; // Clear previous content
+  const headers = [
+    'Selected', 'Group', 'ID', 'Event', 'Player', 'Date', 'Rank', 'Hero', 'Classes', 'Talents',
+    'Played Rounds', 'Top Rounds', 'Wins', 'Losses', 'Draws', 'Double Losses'
+  ];
+  const filter_to_header_map = {
+    'selected': 'Selected',
+    'group': 'Group',
+    'id': 'ID',
+    'event': 'Event',
+    'player': 'Player',
+    'min date': 'Date',
+    'max date': 'Date',
+    'min rank': 'Rank',
+    'max rank': 'Rank',
+    'hero': 'Hero',
+    'classes': 'Classes',
+    'talents': 'Talents',
+    'min played rounds': 'Played Rounds',
+    'max played rounds': 'Played Rounds',
+    'min top rounds': 'Top Rounds',
+    'max top rounds': 'Top Rounds',
+    'min wins': 'Wins',
+    'max wins': 'Wins',
+    'min losses': 'Losses',
+    'max losses': 'Losses',
+    'min draws': 'Draws',
+    'max draws': 'Draws',
+    'min double losses': 'Double Losses',
+    'max double losses': 'Double Losses'
+  };
 
   // Add filters above the table
   const filtersContainer = d3.select(filterAndHead)
     .append('div')
     .attr('id', 'filters-container')
     .style('display', 'flex')
-    .style('gap', '10px')
-    .style('height', '60px')
+    .style('gap', '5px')
+    .style('height', '40px')
     .style('overflow-x', 'auto')
-    .style('flex-wrap', 'wrap');
+    .style('flex-wrap', 'wrap')
+    .style('font-size', '8px');
 
   const filterWrapper = filtersContainer
     .append('div')
+    .attr('id', `filter-wrapper`)
     .style('display', 'flex')
     .style('flex-wrap', 'nowrap')
     .style('overflow-x', 'auto')
-    .style('gap', '10px');
+    .style('gap', '5px');
 
   const filters = {};
 
   [
-    'Group', 'ID', 'Event', 'Date', 'Rank', 'Player', 'Hero', 'Classes', 'Talents', 'Played Rounds', 'Top Rounds',
-    'Wins', 'Losses', 'Draws', 'Double Losses'
+    'Selected', 'Group', 'ID', 'Event', 'Player', 'Start Date', 'End Date', 'Min Rank', 'Max Rank',  'Hero', 'Classes', 'Talents', 'Min Played Rounds', 'Max Played Rounds', 'Min Top Rounds', 'Max Top Rounds',
+    'Min Wins', 'Max Wins', 'Min Losses', 'Max Losses', 'Min Draws', 'Max Draws', 'Min Double Losses', 'Max Double Losses'
   ].forEach((column, index) => {
-    const filterColumnWrapper = filterWrapper
-      .append('div')
-      .style('display', 'flex')
-      .style('flex-direction', 'column')
-      .style('align-items', 'center')
-      .style('height', '30px');
+      const filterColumnWrapper = filterWrapper
+        .append('div')
+        .style('display', 'flex')
+        .style('flex-direction', 'column')
+        .style('align-items', 'center')
+        .style('height', '20px')
+        .style('font-size', '8px');
 
-    filterColumnWrapper
-      .append('span')
-      .text(column)
-      .style('font-weight', 'bold');
+      filterColumnWrapper
+        .append('span')
+        .text(column)
+        .style('font-weight', 'bold')
+        .style('font-size', '8px');
 
-    const filterInput = filterColumnWrapper
-      .append('input')
-      .attr('type', 'text')
-      .attr('placeholder', `Filter by ${column}`)
-      .attr('data-column', column.toLowerCase().replace(' ', '_'));
+      let filterInput;
+      if (['Min Played Rounds', 'Max Played Rounds', 'Min Top Rounds', 'Max Top Rounds', 'Min Wins', 'Max Wins', 'Min Losses', 'Max Losses', 'Min Draws', 'Max Draws', 'Min Double Losses', 'Max Double Losses'].includes(column)) {
+        // Numeric range filter
+        filterInput = filterColumnWrapper
+        .append('input')
+        .attr('type', 'number')
+        .attr('placeholder', column)
+        .attr('data-column', column.toLowerCase().replace(' ', '_'))
+        .style('font-size', '8px');
+      } else if (['Min Rank', 'Max Rank'].includes(column)) {
+        // Numeric range filter for Rank
+        filterInput = filterColumnWrapper
+        .append('input')
+        .attr('type', 'number')
+        .attr('placeholder', column)
+        .attr('data-column', column.toLowerCase().replace(' ', '_'))
+        .style('font-size', '8px');
+      } else if (column === 'Start Date' || column === 'End Date') {
+        // Date filter
+        filterInput = filterColumnWrapper
+        .append('input')
+        .attr('type', 'date')
+        .attr('placeholder', `Filter by ${column}`)
+        .attr('data-column', column.toLowerCase().replace(' ', '_'))
+        .style('font-size', '8px');
+      } else if (column === 'Selected') {
+        // Checkbox filter for 'Selected'
+        filterInput = filterColumnWrapper
+        .append('select')
+        .attr('data-column', column.toLowerCase().replace(' ', '_'))
+        .style('font-size', '8px');
+        filterInput.append('option').attr('value', '').text('All');
+        filterInput.append('option').attr('value', 'true').text('Selected');
+        filterInput.append('option').attr('value', 'false').text('Not Selected');
+      } else {
+        // General text filter
+        filterInput = filterColumnWrapper
+        .append('input')
+        .attr('type', 'text')
+        .attr('placeholder', `Filter by ${column}`)
+        .attr('data-column', column.toLowerCase().replace(' ', '_'))
+        .style('font-size', '8px');
+      }
 
-    filters[column] = '';
+      filters[column] = '';
 
-    filterInput.on('input', function () {
-      filters[column] = this.value.toLowerCase();
-      d3.selectAll('tbody tr').each(function () {
-        const row = d3.select(this);
-        let isVisible = true;
-        Object.keys(filters).forEach((key, filterIndex) => {
-          const cell = row.select(`td:nth-child(${filterIndex + 2})`); // Adjust index to match the column
-          if (filters[key] && (!cell || !cell.text().toLowerCase().includes(filters[key]))) {
-            isVisible = false;
-          }
+      filterInput.on('input', function () {
+        const filterValue = this.value.toLowerCase();
+        filters[column] = filterValue;
+
+        d3.selectAll('tbody tr').each(function () {
+          const row = d3.select(this);
+          let isVisible = true;
+
+            Object.keys(filters).forEach((key) => {
+              const header = filter_to_header_map[key.toLowerCase()];
+              if (!header) return; // Skip if no matching header
+
+              const cell = row.select(`td:nth-child(${headers.indexOf(header) + 1})`); // Match the column based on the header
+              const filter = filters[key];
+              key = key.toLowerCase();
+
+              if (key === 'selected') {
+                // Handle 'Selected' filter
+                const checkbox = cell.select('input[type="checkbox"]');
+                if (filter === 'true' && !checkbox.property('checked')) {
+                isVisible = false;
+                } else if (filter === 'false' && checkbox.property('checked')) {
+                isVisible = false;
+                }
+              } else if (key === 'start date' || key === 'end date') {
+                // Handle 'Start Date' and 'End Date' filters
+                const cellDate = new Date(cell.text());
+                const filterDate = new Date(filter);
+                if (key === 'start date' && filter && (!cellDate || cellDate < filterDate)) {
+                isVisible = false;
+                } else if (key === 'end date' && filter && (!cellDate || cellDate > filterDate)) {
+                isVisible = false;
+                }
+              } else if (key.startsWith('min') || key.startsWith('max')) {
+                // Handle numeric range filters
+                const cellValue = parseInt(cell.text());
+                const filterValue = parseInt(filter);
+                if (key.startsWith('min') && filter && (!cellValue || cellValue < filterValue)) {
+                isVisible = false;
+                } else if (key.startsWith('max') && filter && (!cellValue || cellValue > filterValue)) {
+                isVisible = false;
+                }
+              } else {
+                // Handle general text filters
+                if (filter && (!cell || !cell.text().toLowerCase().includes(filter))) {
+                isVisible = false;
+                }
+              }
+              });
+            row.style('display', isVisible ? '' : 'none');
         });
-        row.style('display', isVisible ? '' : 'none');
       });
     });
-  });
+
+    // Add a reset button for filters
+    d3.select('#filter-wrapper')
+      .insert('button', ':first-child')
+      .text('Reset Filters')
+      .style('font-size', '8px')
+      .style('margin-left', '5px')
+      .style('display', 'inline-block')
+      .on('click', () => {
+      // Clear all filter inputs
+      Object.keys(filters).forEach(key => {
+        filters[key] = '';
+        const input = filterWrapper.select(`[data-column="${key.toLowerCase().replace(' ', '_')}"]`);
+        if (input.node()) {
+        input.property('value', '');
+        }
+      });
+
+      // Reset table rows visibility
+      d3.selectAll('tbody tr').style('display', '');
+      });
 
   // Create the table element
   const table = d3.select(tableContainer)
@@ -1701,7 +1834,8 @@ export function fillTable(data) {
     .attr('id', 'decklists-table')
     .style('border-collapse', 'collapse')
     .style('width', '100%')
-    .style('white-space', 'nowrap');
+    .style('white-space', 'nowrap')
+    .style('font-size', '8px');
 
   // Create the table header
   const thead = table.append('thead')
@@ -1710,25 +1844,24 @@ export function fillTable(data) {
     .style('top', '0')
     .style('background-color', '#fff')
     .style('z-index', '1')
-    .style('text-align', 'center');
+    .style('text-align', 'center')
+    .style('font-size', '8px');
 
   const headerRow = thead.append('tr');
-  const headers = [
-    'Selected', 'Group', 'ID', 'Event', 'Date', 'Rank', 'Player', 'Hero', 'Classes', 'Talents',
-    'Played Rounds', 'Top Rounds', 'Wins', 'Losses', 'Draws', 'Double Losses'
-  ];
 
   headers.forEach((header, index) => {
     const th = headerRow.append('th')
       .style('border', '1px solid black')
       .style('border-top', 'none')
       .style('border-bottom', 'none')
+      .style('font-size', '8px')
       .text(header);
 
     if (index === 0) {
       th.append('button')
         .attr('id', 'manage-selected-list-table')
         .text('Manage')
+        .style('font-size', '8px')
         .on('click', () => {
           const popup = d3.select('body')
             .append('div')
@@ -1738,21 +1871,22 @@ export function fillTable(data) {
             .style('transform', 'translate(-50%, -50%)')
             .style('background', '#fff')
             .style('border', '1px solid #ccc')
-            .style('padding', '20px')
+            .style('padding', '10px')
             .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
-            .style('z-index', '1000');
+            .style('z-index', '1000')
+            .style('font-size', '8px');
 
           popup.html(`
-            <h3>Manage Selected List</h3>
-            <form id="manage-selected-list-form">
-              <label><input type="checkbox" name="manage-option" value="clear"> Clear Selected List</label><br>
-              <label><input type="checkbox" name="manage-option" value="select"> Select All</label><br>
-              <label><input type="checkbox" name="manage-option" value="remove"> Remove from Groups</label><br>
-              <label><input type="checkbox" name="manage-option" value="add"> Add to Groups</label><br>
-              <label><input type="checkbox" name="manage-option" value="group"> Make as new Group</label><br>
-              <label><input type="checkbox" name="manage-option" value="selection"> Make as new Selection</label><br><br>
-              <button type="submit">Submit</button>
-              <button type="button" id="cancel-manage-popup">Cancel</button>
+            <h3 style="font-size: 8px;">Manage Selected List</h3>
+            <form id="manage-selected-list-form" style="font-size: 8px;">
+              <label><input type="checkbox" name="manage-option" value="clear" style="font-size: 8px;"> Clear Selected List</label><br>
+              <label><input type="checkbox" name="manage-option" value="select" style="font-size: 8px;"> Select All</label><br>
+              <label><input type="checkbox" name="manage-option" value="remove" style="font-size: 8px;"> Remove from Groups</label><br>
+              <label><input type="checkbox" name="manage-option" value="add" style="font-size: 8px;"> Add to Groups</label><br>
+              <label><input type="checkbox" name="manage-option" value="group" style="font-size: 8px;"> Make as new Group</label><br>
+              <label><input type="checkbox" name="manage-option" value="selection" style="font-size: 8px;"> Make as new Selection</label><br><br>
+              <button type="submit" style="font-size: 8px;">Submit</button>
+              <button type="button" id="cancel-manage-popup" style="font-size: 8px;">Cancel</button>
             </form>
           `);
 
@@ -1794,6 +1928,7 @@ export function fillTable(data) {
                 const groupName = document.createElement('select');
                 groupName.id = 'group-name-dropdown';
                 groupName.style.margin = '10px';
+                groupName.style.fontSize = '8px';
                 groupNames.forEach(name => {
                   const option = document.createElement('option');
                   option.value = name;
@@ -1808,17 +1943,20 @@ export function fillTable(data) {
                 group_popup.style.transform = 'translate(-50%, -50%)';
                 group_popup.style.background = '#fff';
                 group_popup.style.border = '1px solid #ccc';
-                group_popup.style.padding = '20px';
+                group_popup.style.padding = '10px';
                 group_popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
                 group_popup.style.zIndex = '1000';
+                group_popup.style.fontSize = '8px';
 
                 const submitButton = document.createElement('button');
                 submitButton.textContent = 'Submit';
                 submitButton.style.margin = '10px';
+                submitButton.style.fontSize = '8px';
 
                 const cancelButton = document.createElement('button');
                 cancelButton.textContent = 'Cancel';
                 cancelButton.style.margin = '10px';
+                cancelButton.style.fontSize = '8px';
 
                 group_popup.appendChild(document.createTextNode('Select a group to add selected decklists to:'));
                 group_popup.appendChild(groupName);
@@ -1875,30 +2013,32 @@ export function fillTable(data) {
         enter => enter.append('tr')
           .style('text-align', 'center')
           .style("background", d => getGradient(d.group))
-          .style('height', '20px')
+          .style('height', '15px')
+          .style('font-size', '8px')
           .call(enter => {
             enter.selectAll('td')
               .data(d => [
-                `<input type="checkbox" class="select-decklist" data-id="${d.decklist.Metadata["List Id"]}">`,
-                d.group,
-                d.decklist.Metadata["List Id"],
-                d.decklist.Metadata["Event"],
-                d.decklist.Metadata["Date"],
-                d.decklist.Metadata["Rank"],
-                d.decklist.Metadata["Player Name"],
-                d.decklist.Metadata["Hero"] || '',
-                d.decklist.Metadata["Classes"] || '',
-                d.decklist.Metadata["Talents"] || '',
-                d.decklist.Metadata["Classic Constructed Played Rounds"] || 0,
-                d.decklist.Metadata["Classic Constructed Top Rounds"] || 0,
-                d.decklist.Metadata["Classic Constructed Wins"] || 0,
-                d.decklist.Metadata["Classic Constructed Losses"] || 0,
-                d.decklist.Metadata["Classic Constructed Draws"] || 0,
-                d.decklist.Metadata["Classic Constructed Double Losses"] || 0
+              `<input type="checkbox" class="select-decklist" data-id="${d.decklist.Metadata["List Id"]}" style="font-size: 8px;">`,
+              d.group,
+              d.decklist.Metadata["List Id"],
+              d.decklist.Metadata["Event"],
+              d.decklist.Metadata["Player Name"],
+              d.decklist.Metadata["Date"],
+              d.decklist.Metadata["Rank"],
+              d.decklist.Metadata["Hero"] || '',
+              d.decklist.Metadata["Classes"] || '',
+              d.decklist.Metadata["Talents"] || '',
+              d.decklist.Metadata["Classic Constructed Played Rounds"] || 0,
+              d.decklist.Metadata["Classic Constructed Top Rounds"] || 0,
+              d.decklist.Metadata["Classic Constructed Wins"] || 0,
+              d.decklist.Metadata["Classic Constructed Losses"] || 0,
+              d.decklist.Metadata["Classic Constructed Draws"] || 0,
+              d.decklist.Metadata["Classic Constructed Double Losses"] || 0
               ])
               .enter()
               .append('td')
-              .style('border', '2px solid black')
+              .style('border', '1px solid black')
+              .style('font-size', '8px')
               .html(d => d);
           }),
         update => update
