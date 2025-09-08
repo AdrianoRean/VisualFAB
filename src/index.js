@@ -107,13 +107,14 @@ addFormBtn.addEventListener('click', () => {
 });
 
 // Add this once, outside drawViz
+const tooltipColor = '#e1e1e1ff';
 const tooltip = d3
   .select('body')
   .append('div')
   .attr('id', 'd3-tooltip')
   .style('z-index', '1001')
   .style('position', 'absolute')
-  .style('background', '#fff')
+  .style('background', tooltipColor)
   .style('border', '1px solid #999')
   .style('padding', '4px 8px')
   .style('pointer-events', 'none')
@@ -174,7 +175,7 @@ export function createForm(existingGroupName = null) {
   formDiv.innerHTML = `
     <fieldset style="font-size: 8px;">
     <legend>${groupName}
-      <button type="button" class="toggle-form" style="font-size: 8px;">🔽 Hide</button>
+      <button type="button" class="toggle-form" style="font-size: 8px; background-color: rgba(255, 255, 0, 0.296);">🔽 Hide</button>
     </legend>
     <div class="form-content-container" style="display: flex; gap: 5px; font-size: 8px;">
       <div class="form-section" style="font-size: 8px;">
@@ -237,9 +238,9 @@ export function createForm(existingGroupName = null) {
     .slice(0, 16)}" required style="font-size: 8px;">
         <br><br>
         <div id="decklists-analyzed-count-group-${g_index}" style="font-size: 8px;">n/d</div>
-        <button type="button" class="save-form-as-selection" style="font-size: 8px;">Save Decklists Group as Selection ℹ️</button>
+        <button type="button" class="save-form-as-selection" style="font-size: 8px; background-color: rgba(30, 255, 0, 0.3);">Save Decklists Group as Selection ℹ️</button>
         <br>
-        <button type="button" class="remove-form" style="font-size: 8px;">❌ Remove Decklist Group</button>
+        <button type="button" class="remove-form" style="font-size: 8px; background-color: rgba(255, 13, 0, 0.3);">❌ Remove Decklist Group</button>
       </div>
     </div>
     </fieldset>
@@ -905,8 +906,8 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   const width = general_width;
   const height = general_height;
 
-  const button_height = 30;
-  const button_margin = 10;
+  const button_height = 20;
+  const button_margin = 5;
 
   function createMatchupPopup(form_heroes, all_criterias, name_of_element) {
     // Check if the button already exists to avoid duplicates
@@ -917,7 +918,26 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
     addMatchupBtn.textContent = 'Manage Matchups';
     addMatchupBtn.style.height = `${button_height}px`;
     addMatchupBtn.style.margin = `${button_margin}px`;
+    addMatchupBtn.style.backgroundColor = 'rgba(255, 255, 0, 0.296)';
+    addMatchupBtn.style.fontSize = '10px';
     name_of_element.appendChild(addMatchupBtn);
+
+    // Add hover tooltip for addMatchupBtn
+    addMatchupBtn.addEventListener('mouseover', (event) => {
+      tooltip
+        .style('display', 'block')
+        .html(
+          `Click to manage matchups for the parallel coordinates graph. You can add or remove heroes or selections as matchups.`
+        )
+        .style('left', event.pageX + 10 + 'px')
+        .style('top', event.pageY - 28 + 'px');
+    });
+    addMatchupBtn.addEventListener('mousemove', function (event) {
+      tooltip.style('left', event.pageX + 10 + 'px').style('top', event.pageY - 28 + 'px');
+    });
+    addMatchupBtn.addEventListener('mouseout', function () {
+      tooltip.style('display', 'none');
+    });
 
     // Create the pop-up menu
     const matchupPopup = document.createElement('div');
@@ -1381,7 +1401,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
       tooltip.style('left', event.pageX + 10 + 'px').style('top', event.pageY - 28 + 'px');
     });
     fetchScatterPlotBtn.addEventListener('mouseout', function () {
-      tooltip.style('display', 'none').style('background-color', '#fff');
+      tooltip.style('display', 'none').style('background-color', tooltipColor);
     });
     leftDiv.appendChild(fetchScatterPlotBtn);
 
