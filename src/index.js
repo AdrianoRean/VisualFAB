@@ -127,7 +127,7 @@ const tooltip = d3
   .style('display', 'none');
 
 const deleteButton = document.getElementById('delete-selection');
-const reloadSearchesSelectionsBtn = document.getElementById('reload-searches-selections');
+const refreshBtn = document.getElementById('refresh-viz');
 
 export async function getFormData() {
   try {
@@ -206,7 +206,7 @@ export function createForm(existingGroupName = null) {
         <label>Search Heroes:</label><br>
         <input type="text" class="hero-search" placeholder="Search heroes..." style="width: 120px; font-size: 8px;"><br><br>
         <label>Heroes:</label><br>
-        <div style="width: 120px; height: 60px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px; font-size: 8px;">
+        <div style="width: 120px; height: 50px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px; font-size: 8px;">
         ${form_heroes
           .map(
             (hero) => `
@@ -219,6 +219,7 @@ export function createForm(existingGroupName = null) {
           .join('')}
         </div>
         <br>
+        <button type="button" id="show-special-decklists-${g_index}" style="font-size: 8px;">Show Special Decklists</button>
       </div>
       <div class="form-section" style="font-size: 8px;">
         <label>Format:</label><br>
@@ -252,6 +253,87 @@ export function createForm(existingGroupName = null) {
     </div>
     </fieldset>
   `;
+
+  // Add hover tooltip for "Show Special Decklists" button
+  const showSpecialDecklistsBtn = formDiv.querySelector(`#show-special-decklists-${g_index}`);
+  showSpecialDecklistsBtn.addEventListener('mouseover', (event) => {
+    tooltip
+      .style('display', 'block')
+      .html('Show specially excluded or included decklists. To manage them, use the checkboxes in the table.')
+      .style('left', event.pageX + 10 + 'px')
+      .style('top', event.pageY - 28 + 'px');
+  });
+  showSpecialDecklistsBtn.addEventListener('mousemove', function (event) {
+    tooltip.style('left', event.pageX + 10 + 'px').style('top', event.pageY - 28 + 'px');
+  });
+  showSpecialDecklistsBtn.addEventListener('mouseout', function () {
+    tooltip.style('display', 'none');
+  });
+
+  // Add functionality to show special decklists
+  showSpecialDecklistsBtn.addEventListener('click', () => {
+    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const groupName = all_criterias.group_form_names[formId];
+    const groupSpecialDecklists = Object.entries(special_decklists)
+      .filter(([_, details]) => details.group === groupName)
+      .map(([decklistId, details]) => ({ decklistId, type: details.type }));
+
+    // Create the pop-up container
+    const popup = d3
+      .select('body')
+      .append('div')
+      .style('position', 'fixed')
+      .style('top', '50%')
+      .style('left', '50%')
+      .style('transform', 'translate(-50%, -50%)')
+      .style('background', '#fff')
+      .style('border', '1px solid #ccc')
+      .style('padding', '20px')
+      .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
+      .style('z-index', '1000')
+      .style('max-height', '80%')
+      .style('overflow-y', 'auto')
+      .style('font-size', '10px');
+
+    // Add title
+    popup
+      .append('h3')
+      .text(`Special Decklists for Group: ${groupName}`)
+      .style('margin-bottom', '10px');
+
+    // Add decklists divided by category
+    const categories = ['added', 'removed'];
+    categories.forEach((category) => {
+      const categoryDecklists = groupSpecialDecklists.filter((d) => d.type === category);
+      if (categoryDecklists.length > 0) {
+        const categoryDiv = popup
+          .append('div')
+          .style('margin-bottom', '10px')
+          .style('padding', '10px')
+          .style('border', '1px solid black')
+          .style('background-color', category === 'added' ? '#d4edda' : '#f8d7da'); // Green for added, red for removed
+
+        categoryDiv
+          .append('h4')
+          .text(category === 'added' ? 'Added Decklists' : 'Removed Decklists')
+          .style('margin-bottom', '5px')
+          .style('margin-top', '0px');
+
+        categoryDecklists.forEach((decklist) => {
+          categoryDiv.append('div').text(`Decklist ID: ${decklist.decklistId}`);
+        });
+      }
+    });
+
+    // Add close button
+    popup
+      .append('button')
+      .text('Close')
+      .style('margin-top', '10px')
+      .on('click', () => {
+        popup.remove();
+      });
+  });
 
   // Add hover tooltip
   const rankHelpSpan = formDiv.querySelector('#rank-help-span');
@@ -2118,19 +2200,19 @@ export function fillTable(data) {
             popup.html(`
               <h3 style="font-size: 8px;">Manage Selected List</h3>
               <form id="manage-selected-list-form" style="font-size: 8px;">
-                <label><input type="checkbox" name="manage-option" value="clear" style="font-size: 8px;"> Clear Selected List</label><br>
-                <label><input type="checkbox" name="manage-option" value="select" style="font-size: 8px;"> Select All</label><br>
-                <label><input type="checkbox" name="manage-option" value="remove" style="font-size: 8px;"> Remove from Groups</label><br>
-                <label><input type="checkbox" name="manage-option" value="add" style="font-size: 8px;"> Add to Groups</label><br>
-                <label><input type="checkbox" name="manage-option" value="group" style="font-size: 8px;"> Make as new Group</label><br>
-                <label><input type="checkbox" name="manage-option" value="selection" style="font-size: 8px;"> Make as new Selection</label><br><br>
-                <button type="submit" style="font-size: 8px;">Submit</button>
-                <button type="button" id="cancel-manage-popup" style="font-size: 8px;">Cancel</button>
+              <label><input type="radio" name="manage-option" value="clear" style="font-size: 8px;"> Clear Selected List</label><br>
+              <label><input type="radio" name="manage-option" value="select" style="font-size: 8px;"> Select All Rows</label><br>
+              <label><input type="radio" name="manage-option" value="remove" style="font-size: 8px;"> Remove from Groups</label><br>
+              <label><input type="radio" name="manage-option" value="add" style="font-size: 8px;"> Add to Groups</label><br>
+              <label><input type="radio" name="manage-option" value="group" style="font-size: 8px;"> Make as new Group</label><br>
+              <label><input type="radio" name="manage-option" value="selection" style="font-size: 8px;"> Make as new Selection</label><br><br>
+              <button type="submit" style="font-size: 8px;">Submit</button>
+              <button type="button" id="cancel-manage-popup" style="font-size: 8px;">Cancel</button>
               </form>
             `);
 
             popup.select('#cancel-manage-popup').on('click', () => popup.remove());
-            popup.select('#manage-selected-list-form').on('submit', (event) => {
+            popup.select('#manage-selected-list-form').on('submit', async (event) => {
               event.preventDefault();
               const selectedOption = popup
                 .select('input[name="manage-option"]:checked')
@@ -2138,33 +2220,115 @@ export function fillTable(data) {
 
               if (selectedOption === 'clear') {
                 d3.selectAll('.select-decklist').property('checked', false);
+                d3.selectAll('.scatter-circle').classed('selected', false).style('stroke', null);
                 alert('Selected list cleared.');
               }
               if (selectedOption === 'select') {
                 d3.selectAll('.select-decklist').property('checked', true);
-                alert('All decklists selected.');
+                d3.selectAll('.scatter-circle').classed('selected', true).style('stroke', 'black');
+                alert('All rows selected.');
               }
               if (selectedOption === 'remove') {
-                alert('Removing selected decklists from their groups...');
                 d3.selectAll('.select-decklist:checked').each(function () {
                   const row = d3.select(this.closest('tr'));
-                  const groupName = row.select('td:nth-child(2)').text().trim();
+                  const groupNames = row.select('td:nth-child(2)').text().trim().split(', ');
                   const listId = row.select('td:nth-child(3)').text().trim();
 
-                  if (all_criterias.groups[groupName]) {
-                    if (!all_criterias.groups[groupName].filter) {
-                      all_criterias.groups[groupName].filter = {};
-                    }
-                    if (!all_criterias.groups[groupName].filter['List Id']) {
-                      all_criterias.groups[groupName].filter['List Id'] = {
-                        precision: 'IS-NOT-IN',
-                        value: [],
-                      };
-                    }
-                    all_criterias.groups[groupName].filter['List Id'].value.push(listId);
-                  }
+                  // Create a dropdown for the user to select a group
+                  const groupDropdown = document.createElement('select');
+                  groupDropdown.style.margin = '10px';
+                  groupDropdown.style.fontSize = '8px';
 
-                  special_decklists[listId] = { group: selectedGroupName, type: 'removed' };
+                  groupNames.forEach((groupName) => {
+                    const option = document.createElement('option');
+                    option.value = groupName;
+                    option.textContent = groupName;
+                    groupDropdown.appendChild(option);
+                  });
+
+                  const popup = document.createElement('div');
+                  popup.style.position = 'fixed';
+                  popup.style.top = '50%';
+                  popup.style.left = '50%';
+                  popup.style.transform = 'translate(-50%, -50%)';
+                  popup.style.background = '#fff';
+                  popup.style.border = '1px solid #ccc';
+                  popup.style.padding = '10px';
+                  popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
+                  popup.style.zIndex = '1000';
+                  popup.style.fontSize = '8px';
+
+                  const submitButton = document.createElement('button');
+                  submitButton.textContent = 'Submit';
+                  submitButton.style.margin = '10px';
+                  submitButton.style.fontSize = '8px';
+
+                  const cancelButton = document.createElement('button');
+                  cancelButton.textContent = 'Cancel';
+                  cancelButton.style.margin = '10px';
+                  cancelButton.style.fontSize = '8px';
+
+                  popup.appendChild(document.createTextNode(`Select a group to remove the decklist (ID: ${listId}) from:`));
+                  popup.appendChild(groupDropdown);
+                  popup.appendChild(submitButton);
+                  popup.appendChild(cancelButton);
+                  document.body.appendChild(popup);
+
+                  cancelButton.addEventListener('click', () => {
+                    popup.remove();
+                  });
+
+                  submitButton.addEventListener('click', () => {
+                    const selectedGroupName = groupDropdown.value;
+                    if (selectedGroupName) {
+                      if (all_criterias.groups[selectedGroupName]) {
+                        if (!all_criterias.groups[selectedGroupName].filter) {
+                          all_criterias.groups[selectedGroupName].filter = {};
+                        }
+                        if (
+                          special_decklists[listId]?.group == selectedGroupName &&
+                          special_decklists[listId]?.type == 'added'
+                        ) {
+                          // If the decklist was previously marked as added to the same group, we need to undo that
+                          if (
+                            all_criterias.groups[selectedGroupName].filter['List Id'] &&
+                            Object.keys(all_criterias.groups[selectedGroupName].filter['List Id']?.value).includes(
+                              'IS-IN'
+                            )
+                          ) {
+                            const index = all_criterias.groups[selectedGroupName].filter['List Id'].value[
+                              'IS-IN'
+                            ].indexOf(listId);
+                            if (index > -1) {
+                              all_criterias.groups[selectedGroupName].filter['List Id'].value['IS-IN'].splice(
+                                index,
+                                1
+                              );
+                              delete special_decklists[listId]; // Remove from special_decklists as it's no longer special
+                            }
+                          }
+                        } else {
+                          if (!all_criterias.groups[selectedGroupName].filter['List Id']) {
+                            all_criterias.groups[selectedGroupName].filter['List Id'] = {
+                              precision: 'COMPOUND',
+                              value: {
+                                'IS-IN': [],
+                                'IS-NOT-IN': [],
+                              },
+                            };
+                          }
+                          all_criterias.groups[selectedGroupName].filter['List Id'].value['IS-NOT-IN'].push(listId);
+                          special_decklists[listId] = { group: selectedGroupName, type: 'removed' };
+                        }
+                      }
+                      alert(
+                        `Decklist removed from group "${selectedGroupName}". Please refresh the Exploration to see changes.`
+                      );
+                      popup.remove();
+                    } else {
+                      alert('Please select a group.');
+                    }
+                  });
                 });
               }
               if (selectedOption === 'add') {
@@ -2203,7 +2367,7 @@ export function fillTable(data) {
                 cancelButton.style.fontSize = '8px';
 
                 group_popup.appendChild(
-                  document.createTextNode('Select a group to add selected decklists to:')
+                  popup.appendChild(document.createTextNode(`Select a group to add the decklist (ID: ${listId}) from:`))
                 );
                 group_popup.appendChild(groupName);
                 group_popup.appendChild(submitButton);
@@ -2225,23 +2389,37 @@ export function fillTable(data) {
                         if (!all_criterias.groups[selectedGroupName].filter) {
                           all_criterias.groups[selectedGroupName].filter = {};
                         }
-                        if (!all_criterias.groups[selectedGroupName].filter['List Id']) {
-                          all_criterias.groups[selectedGroupName].filter['List Id'] = {
-                            precision: 'IS-IN',
-                            value: [],
-                          };
+                        if (special_decklists[listId]?.group == selectedGroupName && special_decklists[listId]?.type == 'removed') {
+                          // If the decklist was previously marked as removed from the same group, we need to undo that
+                          if (all_criterias.groups[selectedGroupName].filter['List Id'] && Object.keys(all_criterias.groups[selectedGroupName].filter['List Id']?.value).includes('IS-NOT-IN')) {
+                            const index = all_criterias.groups[selectedGroupName].filter['List Id'].value["IS-NOT-IN"].indexOf(listId);
+                            if (index > -1) {
+                              all_criterias.groups[selectedGroupName].filter['List Id'].value["IS-NOT-IN"].splice(index, 1);
+                              delete special_decklists[listId]; // Remove from special_decklists as it's no longer special
+                            }
+                          }
+                        } else {
+                          if (!all_criterias.groups[selectedGroupName].filter['List Id']) {
+                            all_criterias.groups[selectedGroupName].filter['List Id'] = {
+                              precision: 'COMPOUND',
+                              value: {
+                                "IS-IN": [],
+                                "IS-NOT-IN": []
+                              },
+                            };
+                          }
+                          all_criterias.groups[selectedGroupName].filter['List Id'].value["IS-IN"].push(listId);
+                          special_decklists[listId] = { group: selectedGroupName, type: 'added' };
                         }
-                        all_criterias.groups[selectedGroupName].filter['List Id'].value.push(listId);
                       }
-                      special_decklists[listId] = { group: selectedGroupName, type: 'added' };
                     });
+                    alert('Selected decklists added to the group. Please refresh the Exploration to see changes.');
                     group_popup.remove();
                   } else {
                     alert('Please select a group.');
                   }
                 });
               }
-
               popup.remove();
             });
           });
@@ -2449,6 +2627,7 @@ export async function getDataAndUpdateViz() {
       // adjust count display
       console.log('data is:', JSON.parse(JSON.stringify(data)));
       console.log('all criteria:', JSON.parse(JSON.stringify(all_criterias)));
+      console.log('special_decklists:', JSON.parse(JSON.stringify(special_decklists)));
       console.log('selections:', JSON.parse(JSON.stringify(selections)));
       data.grouped_decklists_count.forEach(([group, count]) => {
         const groupIndex = Object.keys(all_criterias['group_form_names']).find(
@@ -2930,16 +3109,32 @@ deleteButton.addEventListener('click', async (event) => {
 
 await loadAllSelections();
 
+// Add hover tooltip for refresh button
+refreshBtn.addEventListener('mouseover', (event) => {
+  tooltip
+    .style('display', 'block')
+    .html('Click to refresh searches, selections, and visualizations.')
+    .style('left', event.pageX + 10 + 'px')
+    .style('top', event.pageY - 28 + 'px');
+});
+refreshBtn.addEventListener('mousemove', (event) => {
+  tooltip.style('left', event.pageX + 10 + 'px').style('top', event.pageY - 28 + 'px');
+});
+refreshBtn.addEventListener('mouseout', () => {
+  tooltip.style('display', 'none');
+});
+
 export async function reloadSearchesSelections() {
   await loadSearchNames();
   await loadSelectionNames();
   await loadAllSelections();
 }
 
-reloadSearchesSelectionsBtn.addEventListener('click', async () => {
+refreshBtn.addEventListener('click', async () => {
   try {
     await reloadSearchesSelections();
-    alert('Searches and selections reloaded successfully.');
+    await getDataAndUpdateViz();
+    alert('Viz Refreshed');
   } catch (error) {
     console.error('Error reloading searches and selections:', error);
     alert('Failed to reload searches and selections. Check the console for more details.');

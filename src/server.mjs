@@ -21,7 +21,30 @@ console.log(`Loaded ${decklists.length} decklists`);
 
 function filterDecklists(decklists, criteria, decksToCompare = {}) {
     console.log('Filtering decklists with criteria:', criteria);
+    const isCompoundListId = criteria['List Id'] && criteria['List Id'].precision === 'COMPOUND';
+    let isInList = new Set();
+    let isNotInList = new Set();
+
+    if (isCompoundListId) {
+        const listIdCriteria = criteria['List Id'].value;
+        if (listIdCriteria['IS-IN']) {
+            isInList = new Set(listIdCriteria['IS-IN']);
+        }
+        if (listIdCriteria['IS-NOT-IN']) {
+            isNotInList = new Set(listIdCriteria['IS-NOT-IN']);
+        }
+    }
+
     const filtered = decklists.filter(decklist => {
+        // Always exclude if in IS-NOT-IN
+        if (isNotInList.has(decklist.Metadata['List Id'])) {
+            return false;
+        }
+        // Always include if in IS-IN
+        if (isInList.has(decklist.Metadata['List Id'])) {
+            return true;
+        }
+
         return Object.entries(criteria).every(([key, value]) => {
             if (value.precision === 'RANGE') {
                 return decklist.Metadata[key] >= value.value.min && decklist.Metadata[key] <= value.value.max;
@@ -78,6 +101,7 @@ function filterDecklists(decklists, criteria, decksToCompare = {}) {
                     
                     return flag;
                 }
+                return true; // Default for other COMPOUND types
             } else {
                 return decklist.Metadata[key] === value.value;
             }
