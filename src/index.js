@@ -301,6 +301,15 @@ export function createForm(existingGroupName = null) {
       .text(`Special Decklists for Group: ${groupName}`)
       .style('margin-bottom', '10px');
 
+    // Add a note about whether the List Id filter is exclusive
+    const isExclusive = all_criterias.groups[groupName]?.filter?.['List Id']?.value?.exclusive;
+    popup
+      .append('p')
+      .text(`List Id filter is ${isExclusive ? 'exclusive' : 'not exclusive'}.`)
+      .style('font-size', '10px')
+      .style('margin-bottom', '10px')
+      .style('color', isExclusive ? 'red' : 'green');
+
     // Add decklists divided by category
     const categories = ['added', 'removed'];
     categories.forEach((category) => {
@@ -2205,7 +2214,6 @@ export function fillTable(data) {
               <label><input type="radio" name="manage-option" value="remove" style="font-size: 8px;"> Remove from Groups</label><br>
               <label><input type="radio" name="manage-option" value="add" style="font-size: 8px;"> Add to Groups</label><br>
               <label><input type="radio" name="manage-option" value="group" style="font-size: 8px;"> Make as new Group</label><br>
-              <label><input type="radio" name="manage-option" value="selection" style="font-size: 8px;"> Make as new Selection</label><br><br>
               <button type="submit" style="font-size: 8px;">Submit</button>
               <button type="button" id="cancel-manage-popup" style="font-size: 8px;">Cancel</button>
               </form>
@@ -2314,6 +2322,7 @@ export function fillTable(data) {
                               value: {
                                 'IS-IN': [],
                                 'IS-NOT-IN': [],
+                                exclusive: false,
                               },
                             };
                           }
@@ -2404,7 +2413,8 @@ export function fillTable(data) {
                               precision: 'COMPOUND',
                               value: {
                                 "IS-IN": [],
-                                "IS-NOT-IN": []
+                                "IS-NOT-IN": [],
+                                exclusive: false
                               },
                             };
                           }
@@ -2420,6 +2430,72 @@ export function fillTable(data) {
                   }
                 });
               }
+              if (selectedOption === 'group'){
+                const groupNameInput = document.createElement('input');
+                groupNameInput.type = 'text';
+                groupNameInput.id = 'new-group-name';
+                groupNameInput.placeholder = 'Enter new group name';
+                groupNameInput.style.margin = '10px';
+                groupNameInput.style.fontSize = '8px';
+
+                const group_popup = document.createElement('div');
+                group_popup.style.position = 'fixed';
+                group_popup.style.top = '50%';
+                group_popup.style.left = '50%';
+                group_popup.style.transform = 'translate(-50%, -50%)';
+                group_popup.style.background = '#fff';
+                group_popup.style.border = '1px solid #ccc';
+                group_popup.style.padding = '10px';
+                group_popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
+                group_popup.style.zIndex = '1000';
+                group_popup.style.fontSize = '8px';
+
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Submit';
+                submitButton.style.margin = '10px';
+                submitButton.style.fontSize = '8px';
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Cancel';
+                cancelButton.style.margin = '10px';
+                cancelButton.style.fontSize = '8px';
+
+                group_popup.appendChild(
+                  document.createTextNode(`Enter a name for the new group:`)
+                );
+                group_popup.appendChild(groupNameInput);
+                group_popup.appendChild(submitButton);
+                group_popup.appendChild(cancelButton);
+
+                document.body.appendChild(group_popup);
+
+                cancelButton.addEventListener('click', () => {
+                  group_popup.remove();
+                });
+
+                submitButton.addEventListener('click', () => {
+                  const newGroupName = groupNameInput.value.trim();
+                  if (newGroupName) {
+                    all_criterias.group_form_names[group_index] = newGroupName;
+                    group_index += 1;
+                    createForm(newGroupName);
+                    all_criterias.groups[newGroupName] = { 
+                      filter: {
+                        'List Id': { precision: 'COMPOUND', value: { "IS-IN": [], "IS-NOT-IN": [], exclusive: true } }
+                      }
+                    };
+                    
+                    d3.selectAll('.select-decklist:checked').each(function () {
+                      const row = d3.select(this.closest('tr'));
+                      const listId = row.select('td:nth-child(3)').text().trim();
+                      all_criterias.groups[newGroupName].filter['List Id'].value["IS-IN"].push(listId);
+                      special_decklists[listId] = { group: newGroupName, type: 'added' };
+                    });
+                  }
+                  alert(`New group created. Please refresh the Exploration to see changes.`);
+                  group_popup.remove();
+                });
+                }
               popup.remove();
             });
           });
@@ -2869,6 +2945,7 @@ export function setupLoadSearchListener() {
       all_criterias.groups = loadedSearch.all_criterias.groups || {};
       all_criterias.graphs = loadedSearch.all_criterias.graphs || {};
       all_criterias.selections = loadedSearch.all_criterias.selections || [];
+      special_decklists = loadedSearch.special_decklists || {};
 
       console.log('Updated all_criterias:', JSON.parse(JSON.stringify(all_criterias)));
 

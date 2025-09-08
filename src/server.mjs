@@ -101,6 +101,11 @@ function filterDecklists(decklists, criteria, decksToCompare = {}) {
                     
                     return flag;
                 }
+                if (key === 'List Id') {
+                    if (value.value.exclusive) {
+                        return false;
+                    }
+                }
                 return true; // Default for other COMPOUND types
             } else {
                 return decklist.Metadata[key] === value.value;
