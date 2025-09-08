@@ -1701,6 +1701,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
       .append('circle')
       .attr('cx', (d) => x(d[0]))
       .attr('cy', (d) => y(d[1]))
+      .attr('data-id', (d) => sanitizeId(d[2].id))
       .attr('r', 5)
       .attr('transform', `translate(0,${graph_margins * 3})`)
       .attr(
@@ -1809,442 +1810,447 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   console.log('Scatter plot drawn successfully.');
 }
 
+let tbody;
+let tableInitialized = false;
+
 export function fillTable(data) {
-  filterAndHead.innerHTML = ''; // Clear previous content
-  const headers = [
-    'Selected',
-    'Group',
-    'ID',
-    'Event',
-    'Player',
-    'Date',
-    'Rank',
-    'Hero',
-    'Classes',
-    'Talents',
-    'Played Rounds',
-    'Top Rounds',
-    'Wins',
-    'Losses',
-    'Draws',
-    'Double Losses',
-    'List of Cards',
-  ];
-  const filter_to_header_map = {
-    selected: 'Selected',
-    group: 'Group',
-    id: 'ID',
-    event: 'Event',
-    player: 'Player',
-    'min date': 'Date',
-    'max date': 'Date',
-    'min rank': 'Rank',
-    'max rank': 'Rank',
-    hero: 'Hero',
-    classes: 'Classes',
-    talents: 'Talents',
-    'min played rounds': 'Played Rounds',
-    'max played rounds': 'Played Rounds',
-    'min top rounds': 'Top Rounds',
-    'max top rounds': 'Top Rounds',
-    'min wins': 'Wins',
-    'max wins': 'Wins',
-    'min losses': 'Losses',
-    'max losses': 'Losses',
-    'min draws': 'Draws',
-    'max draws': 'Draws',
-    'min double losses': 'Double Losses',
-    'max double losses': 'Double Losses',
-  };
+  
+  if (!tableInitialized) {
+    const headers = [
+      'Selected',
+      'Group',
+      'ID',
+      'Event',
+      'Player',
+      'Date',
+      'Rank',
+      'Hero',
+      'Classes',
+      'Talents',
+      'Played Rounds',
+      'Top Rounds',
+      'Wins',
+      'Losses',
+      'Draws',
+      'Double Losses',
+      'List of Cards',
+    ];
+    const filter_to_header_map = {
+      selected: 'Selected',
+      group: 'Group',
+      id: 'ID',
+      event: 'Event',
+      player: 'Player',
+      'min date': 'Date',
+      'max date': 'Date',
+      'min rank': 'Rank',
+      'max rank': 'Rank',
+      hero: 'Hero',
+      classes: 'Classes',
+      talents: 'Talents',
+      'min played rounds': 'Played Rounds',
+      'max played rounds': 'Played Rounds',
+      'min top rounds': 'Top Rounds',
+      'max top rounds': 'Top Rounds',
+      'min wins': 'Wins',
+      'max wins': 'Wins',
+      'min losses': 'Losses',
+      'max losses': 'Losses',
+      'min draws': 'Draws',
+      'max draws': 'Draws',
+      'min double losses': 'Double Losses',
+      'max double losses': 'Double Losses',
+    };
 
-  // Add filters above the table
-  const filtersContainer = d3
-    .select(filterAndHead)
-    .append('div')
-    .attr('id', 'filters-container')
-    .style('display', 'flex')
-    .style('gap', '5px')
-    .style('height', '40px')
-    .style('overflow-x', 'auto')
-    .style('flex-wrap', 'wrap')
-    .style('font-size', '8px');
-
-  const filterWrapper = filtersContainer
-    .append('div')
-    .attr('id', `filter-wrapper`)
-    .style('display', 'flex')
-    .style('flex-wrap', 'nowrap')
-    .style('overflow-x', 'auto')
-    .style('gap', '5px');
-
-  const filters = {};
-
-  [
-    'Selected',
-    'Group',
-    'ID',
-    'Event',
-    'Player',
-    'Start Date',
-    'End Date',
-    'Min Rank',
-    'Max Rank',
-    'Hero',
-    'Classes',
-    'Talents',
-    'Min Played Rounds',
-    'Max Played Rounds',
-    'Min Top Rounds',
-    'Max Top Rounds',
-    'Min Wins',
-    'Max Wins',
-    'Min Losses',
-    'Max Losses',
-    'Min Draws',
-    'Max Draws',
-    'Min Double Losses',
-    'Max Double Losses',
-  ].forEach((column, index) => {
-    const filterColumnWrapper = filterWrapper
+    // Add filters above the table
+    const filtersContainer = d3
+      .select(filterAndHead)
       .append('div')
+      .attr('id', 'filters-container')
       .style('display', 'flex')
-      .style('flex-direction', 'column')
-      .style('align-items', 'center')
-      .style('height', '20px')
+      .style('gap', '5px')
+      .style('height', '40px')
+      .style('overflow-x', 'auto')
+      .style('flex-wrap', 'wrap')
       .style('font-size', '8px');
 
-    filterColumnWrapper
-      .append('span')
-      .text(column)
-      .style('font-weight', 'bold')
-      .style('font-size', '8px');
+    const filterWrapper = filtersContainer
+      .append('div')
+      .attr('id', `filter-wrapper`)
+      .style('display', 'flex')
+      .style('flex-wrap', 'nowrap')
+      .style('overflow-x', 'auto')
+      .style('gap', '5px');
 
-    let filterInput;
-    if (
-      [
-        'Min Played Rounds',
-        'Max Played Rounds',
-        'Min Top Rounds',
-        'Max Top Rounds',
-        'Min Wins',
-        'Max Wins',
-        'Min Losses',
-        'Max Losses',
-        'Min Draws',
-        'Max Draws',
-        'Min Double Losses',
-        'Max Double Losses',
-      ].includes(column)
-    ) {
-      // Numeric range filter
-      filterInput = filterColumnWrapper
-        .append('input')
-        .attr('type', 'number')
-        .attr('placeholder', column)
-        .attr('data-column', column.toLowerCase().replace(' ', '_'))
-        .style('font-size', '8px');
-    } else if (['Min Rank', 'Max Rank'].includes(column)) {
-      // Numeric range filter for Rank
-      filterInput = filterColumnWrapper
-        .append('input')
-        .attr('type', 'number')
-        .attr('placeholder', column)
-        .attr('data-column', column.toLowerCase().replace(' ', '_'))
-        .style('font-size', '8px');
-    } else if (column === 'Start Date' || column === 'End Date') {
-      // Date filter
-      filterInput = filterColumnWrapper
-        .append('input')
-        .attr('type', 'date')
-        .attr('placeholder', `Filter by ${column}`)
-        .attr('data-column', column.toLowerCase().replace(' ', '_'))
-        .style('font-size', '8px');
-    } else if (column === 'Selected') {
-      // Checkbox filter for 'Selected'
-      filterInput = filterColumnWrapper
-        .append('select')
-        .attr('data-column', column.toLowerCase().replace(' ', '_'))
-        .style('font-size', '8px');
-      filterInput.append('option').attr('value', '').text('All');
-      filterInput.append('option').attr('value', 'true').text('Selected');
-      filterInput.append('option').attr('value', 'false').text('Not Selected');
-    } else {
-      // General text filter
-      filterInput = filterColumnWrapper
-        .append('input')
-        .attr('type', 'text')
-        .attr('placeholder', `Filter by ${column}`)
-        .attr('data-column', column.toLowerCase().replace(' ', '_'))
-        .style('font-size', '8px');
-    }
+    const filters = {};
 
-    filters[column] = '';
+    [
+      'Selected',
+      'Group',
+      'ID',
+      'Event',
+      'Player',
+      'Start Date',
+      'End Date',
+      'Min Rank',
+      'Max Rank',
+      'Hero',
+      'Classes',
+      'Talents',
+      'Min Played Rounds',
+      'Max Played Rounds',
+      'Min Top Rounds',
+      'Max Top Rounds',
+      'Min Wins',
+      'Max Wins',
+      'Min Losses',
+      'Max Losses',
+      'Min Draws',
+      'Max Draws',
+      'Min Double Losses',
+      'Max Double Losses',
+    ].forEach((column, index) => {
+      const filterColumnWrapper = filterWrapper
+        .append('div')
+        .style('display', 'flex')
+        .style('flex-direction', 'column')
+        .style('align-items', 'center')
+        .style('height', '20px')
+        .style('font-size', '8px');
 
-    filterInput.on('input', function () {
-      const filterValue = this.value.toLowerCase();
-      filters[column] = filterValue;
+      filterColumnWrapper
+        .append('span')
+        .text(column)
+        .style('font-weight', 'bold')
+        .style('font-size', '8px');
 
-      d3.selectAll('tbody tr').each(function () {
-        const row = d3.select(this);
-        let isVisible = true;
+      let filterInput;
+      if (
+        [
+          'Min Played Rounds',
+          'Max Played Rounds',
+          'Min Top Rounds',
+          'Max Top Rounds',
+          'Min Wins',
+          'Max Wins',
+          'Min Losses',
+          'Max Losses',
+          'Min Draws',
+          'Max Draws',
+          'Min Double Losses',
+          'Max Double Losses',
+        ].includes(column)
+      ) {
+        // Numeric range filter
+        filterInput = filterColumnWrapper
+          .append('input')
+          .attr('type', 'number')
+          .attr('placeholder', column)
+          .attr('data-column', column.toLowerCase().replace(' ', '_'))
+          .style('font-size', '8px');
+      } else if (['Min Rank', 'Max Rank'].includes(column)) {
+        // Numeric range filter for Rank
+        filterInput = filterColumnWrapper
+          .append('input')
+          .attr('type', 'number')
+          .attr('placeholder', column)
+          .attr('data-column', column.toLowerCase().replace(' ', '_'))
+          .style('font-size', '8px');
+      } else if (column === 'Start Date' || column === 'End Date') {
+        // Date filter
+        filterInput = filterColumnWrapper
+          .append('input')
+          .attr('type', 'date')
+          .attr('placeholder', `Filter by ${column}`)
+          .attr('data-column', column.toLowerCase().replace(' ', '_'))
+          .style('font-size', '8px');
+      } else if (column === 'Selected') {
+        // Checkbox filter for 'Selected'
+        filterInput = filterColumnWrapper
+          .append('select')
+          .attr('data-column', column.toLowerCase().replace(' ', '_'))
+          .style('font-size', '8px');
+        filterInput.append('option').attr('value', '').text('All');
+        filterInput.append('option').attr('value', 'true').text('Selected');
+        filterInput.append('option').attr('value', 'false').text('Not Selected');
+      } else {
+        // General text filter
+        filterInput = filterColumnWrapper
+          .append('input')
+          .attr('type', 'text')
+          .attr('placeholder', `Filter by ${column}`)
+          .attr('data-column', column.toLowerCase().replace(' ', '_'))
+          .style('font-size', '8px');
+      }
 
+      filters[column] = '';
+
+      filterInput.on('input', function () {
+        const filterValue = this.value.toLowerCase();
+        filters[column] = filterValue;
+
+        d3.selectAll('tbody tr').each(function () {
+          const row = d3.select(this);
+          let isVisible = true;
+
+          Object.keys(filters).forEach((key) => {
+            const header = filter_to_header_map[key.toLowerCase()];
+            if (!header) return; // Skip if no matching header
+
+            const cell = row.select(`td:nth-child(${headers.indexOf(header) + 1})`); // Match the column based on the header
+            const filter = filters[key];
+            key = key.toLowerCase();
+
+            if (key === 'selected') {
+              // Handle 'Selected' filter
+              const checkbox = cell.select('input[type="checkbox"]');
+              if (filter === 'true' && !checkbox.property('checked')) {
+                isVisible = false;
+              } else if (filter === 'false' && checkbox.property('checked')) {
+                isVisible = false;
+              }
+            } else if (key === 'start date' || key === 'end date') {
+              // Handle 'Start Date' and 'End Date' filters
+              const cellDate = new Date(cell.text());
+              const filterDate = new Date(filter);
+              if (key === 'start date' && filter && (!cellDate || cellDate < filterDate)) {
+                isVisible = false;
+              } else if (key === 'end date' && filter && (!cellDate || cellDate > filterDate)) {
+                isVisible = false;
+              }
+            } else if (key.startsWith('min') || key.startsWith('max')) {
+              // Handle numeric range filters
+              const cellValue = parseInt(cell.text());
+              const filterValue = parseInt(filter);
+              if (key.startsWith('min') && filter && (!cellValue || cellValue < filterValue)) {
+                isVisible = false;
+              } else if (key.startsWith('max') && filter && (!cellValue || cellValue > filterValue)) {
+                isVisible = false;
+              }
+            } else {
+              // Handle general text filters
+              if (filter && (!cell || !cell.text().toLowerCase().includes(filter))) {
+                isVisible = false;
+              }
+            }
+          });
+          row.style('display', isVisible ? '' : 'none');
+        });
+      });
+    });
+
+    // Add a reset button for filters
+    d3.select('#filter-wrapper')
+      .insert('button', ':first-child')
+      .text('Reset Filters')
+      .style('font-size', '8px')
+      .style('margin-left', '5px')
+      .style('display', 'inline-block')
+      .on('click', () => {
+        // Clear all filter inputs
         Object.keys(filters).forEach((key) => {
-          const header = filter_to_header_map[key.toLowerCase()];
-          if (!header) return; // Skip if no matching header
-
-          const cell = row.select(`td:nth-child(${headers.indexOf(header) + 1})`); // Match the column based on the header
-          const filter = filters[key];
-          key = key.toLowerCase();
-
-          if (key === 'selected') {
-            // Handle 'Selected' filter
-            const checkbox = cell.select('input[type="checkbox"]');
-            if (filter === 'true' && !checkbox.property('checked')) {
-              isVisible = false;
-            } else if (filter === 'false' && checkbox.property('checked')) {
-              isVisible = false;
-            }
-          } else if (key === 'start date' || key === 'end date') {
-            // Handle 'Start Date' and 'End Date' filters
-            const cellDate = new Date(cell.text());
-            const filterDate = new Date(filter);
-            if (key === 'start date' && filter && (!cellDate || cellDate < filterDate)) {
-              isVisible = false;
-            } else if (key === 'end date' && filter && (!cellDate || cellDate > filterDate)) {
-              isVisible = false;
-            }
-          } else if (key.startsWith('min') || key.startsWith('max')) {
-            // Handle numeric range filters
-            const cellValue = parseInt(cell.text());
-            const filterValue = parseInt(filter);
-            if (key.startsWith('min') && filter && (!cellValue || cellValue < filterValue)) {
-              isVisible = false;
-            } else if (key.startsWith('max') && filter && (!cellValue || cellValue > filterValue)) {
-              isVisible = false;
-            }
-          } else {
-            // Handle general text filters
-            if (filter && (!cell || !cell.text().toLowerCase().includes(filter))) {
-              isVisible = false;
-            }
+          filters[key] = '';
+          const input = filterWrapper.select(
+            `[data-column="${key.toLowerCase().replace(' ', '_')}"]`
+          );
+          if (input.node()) {
+            input.property('value', '');
           }
         });
-        row.style('display', isVisible ? '' : 'none');
-      });
-    });
-  });
 
-  // Add a reset button for filters
-  d3.select('#filter-wrapper')
-    .insert('button', ':first-child')
-    .text('Reset Filters')
-    .style('font-size', '8px')
-    .style('margin-left', '5px')
-    .style('display', 'inline-block')
-    .on('click', () => {
-      // Clear all filter inputs
-      Object.keys(filters).forEach((key) => {
-        filters[key] = '';
-        const input = filterWrapper.select(
-          `[data-column="${key.toLowerCase().replace(' ', '_')}"]`
-        );
-        if (input.node()) {
-          input.property('value', '');
-        }
+        // Reset table rows visibility
+        d3.selectAll('tbody tr').style('display', '');
       });
 
-      // Reset table rows visibility
-      d3.selectAll('tbody tr').style('display', '');
-    });
+    // Create the table element
+    const table = d3
+      .select(tableContainer)
+      .html('') // Clear previous content
+      .append('table')
+      .attr('id', 'decklists-table')
+      .style('border-collapse', 'collapse')
+      .style('width', '100%')
+      .style('white-space', 'nowrap')
+      .style('font-size', '8px');
 
-  // Create the table element
-  const table = d3
-    .select(tableContainer)
-    .html('') // Clear previous content
-    .append('table')
-    .attr('id', 'decklists-table')
-    .style('border-collapse', 'collapse')
-    .style('width', '100%')
-    .style('white-space', 'nowrap')
-    .style('font-size', '8px');
+    // Create the table header
+    const thead = table
+      .append('thead')
+      .style('width', '100%')
+      .style('position', 'sticky')
+      .style('top', '0')
+      .style('background-color', '#fff')
+      .style('z-index', '1')
+      .style('text-align', 'center')
+      .style('font-size', '8px');
 
-  // Create the table header
-  const thead = table
-    .append('thead')
-    .style('width', '100%')
-    .style('position', 'sticky')
-    .style('top', '0')
-    .style('background-color', '#fff')
-    .style('z-index', '1')
-    .style('text-align', 'center')
-    .style('font-size', '8px');
+    const headerRow = thead.append('tr');
 
-  const headerRow = thead.append('tr');
-
-  headers.forEach((header, index) => {
-    const th = headerRow
-      .append('th')
-      .style('border', '1px solid black')
-      .style('border-top', 'none')
-      .style('border-bottom', 'none')
-      .style('font-size', '8px')
-      .text(header);
-
-    if (index === 0) {
-      th.append('button')
-        .attr('id', 'manage-selected-list-table')
-        .text('Manage')
+    headers.forEach((header, index) => {
+      const th = headerRow
+        .append('th')
+        .style('border', '1px solid black')
+        .style('border-top', 'none')
+        .style('border-bottom', 'none')
         .style('font-size', '8px')
-        .on('click', () => {
-          const popup = d3
-            .select('body')
-            .append('div')
-            .style('position', 'fixed')
-            .style('top', '50%')
-            .style('left', '50%')
-            .style('transform', 'translate(-50%, -50%)')
-            .style('background', '#fff')
-            .style('border', '1px solid #ccc')
-            .style('padding', '10px')
-            .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
-            .style('z-index', '1000')
-            .style('font-size', '8px');
+        .text(header);
 
-          popup.html(`
-            <h3 style="font-size: 8px;">Manage Selected List</h3>
-            <form id="manage-selected-list-form" style="font-size: 8px;">
-              <label><input type="checkbox" name="manage-option" value="clear" style="font-size: 8px;"> Clear Selected List</label><br>
-              <label><input type="checkbox" name="manage-option" value="select" style="font-size: 8px;"> Select All</label><br>
-              <label><input type="checkbox" name="manage-option" value="remove" style="font-size: 8px;"> Remove from Groups</label><br>
-              <label><input type="checkbox" name="manage-option" value="add" style="font-size: 8px;"> Add to Groups</label><br>
-              <label><input type="checkbox" name="manage-option" value="group" style="font-size: 8px;"> Make as new Group</label><br>
-              <label><input type="checkbox" name="manage-option" value="selection" style="font-size: 8px;"> Make as new Selection</label><br><br>
-              <button type="submit" style="font-size: 8px;">Submit</button>
-              <button type="button" id="cancel-manage-popup" style="font-size: 8px;">Cancel</button>
-            </form>
-          `);
+      if (index === 0) {
+        th.append('button')
+          .attr('id', 'manage-selected-list-table')
+          .text('Manage')
+          .style('font-size', '8px')
+          .on('click', () => {
+            const popup = d3
+              .select('body')
+              .append('div')
+              .style('position', 'fixed')
+              .style('top', '50%')
+              .style('left', '50%')
+              .style('transform', 'translate(-50%, -50%)')
+              .style('background', '#fff')
+              .style('border', '1px solid #ccc')
+              .style('padding', '10px')
+              .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
+              .style('z-index', '1000')
+              .style('font-size', '8px');
 
-          popup.select('#cancel-manage-popup').on('click', () => popup.remove());
-          popup.select('#manage-selected-list-form').on('submit', (event) => {
-            event.preventDefault();
-            const selectedOption = popup
-              .select('input[name="manage-option"]:checked')
-              .node()?.value;
+            popup.html(`
+              <h3 style="font-size: 8px;">Manage Selected List</h3>
+              <form id="manage-selected-list-form" style="font-size: 8px;">
+                <label><input type="checkbox" name="manage-option" value="clear" style="font-size: 8px;"> Clear Selected List</label><br>
+                <label><input type="checkbox" name="manage-option" value="select" style="font-size: 8px;"> Select All</label><br>
+                <label><input type="checkbox" name="manage-option" value="remove" style="font-size: 8px;"> Remove from Groups</label><br>
+                <label><input type="checkbox" name="manage-option" value="add" style="font-size: 8px;"> Add to Groups</label><br>
+                <label><input type="checkbox" name="manage-option" value="group" style="font-size: 8px;"> Make as new Group</label><br>
+                <label><input type="checkbox" name="manage-option" value="selection" style="font-size: 8px;"> Make as new Selection</label><br><br>
+                <button type="submit" style="font-size: 8px;">Submit</button>
+                <button type="button" id="cancel-manage-popup" style="font-size: 8px;">Cancel</button>
+              </form>
+            `);
 
-            if (selectedOption === 'clear') {
-              d3.selectAll('.select-decklist').property('checked', false);
-              alert('Selected list cleared.');
-            }
-            if (selectedOption === 'select') {
-              d3.selectAll('.select-decklist').property('checked', true);
-              alert('All decklists selected.');
-            }
-            if (selectedOption === 'remove') {
-              alert('Removing selected decklists from their groups...');
-              d3.selectAll('.select-decklist:checked').each(function () {
-                const row = d3.select(this.closest('tr'));
-                const groupName = row.select('td:nth-child(2)').text().trim();
-                const listId = row.select('td:nth-child(3)').text().trim();
+            popup.select('#cancel-manage-popup').on('click', () => popup.remove());
+            popup.select('#manage-selected-list-form').on('submit', (event) => {
+              event.preventDefault();
+              const selectedOption = popup
+                .select('input[name="manage-option"]:checked')
+                .node()?.value;
 
-                if (all_criterias.groups[groupName]) {
-                  if (!all_criterias.groups[groupName].filter) {
-                    all_criterias.groups[groupName].filter = {};
-                  }
-                  if (!all_criterias.groups[groupName].filter['List Id']) {
-                    all_criterias.groups[groupName].filter['List Id'] = {
-                      precision: 'IS-NOT-IN',
-                      value: [],
-                    };
-                  }
-                  all_criterias.groups[groupName].filter['List Id'].value.push(listId);
-                }
+              if (selectedOption === 'clear') {
+                d3.selectAll('.select-decklist').property('checked', false);
+                alert('Selected list cleared.');
+              }
+              if (selectedOption === 'select') {
+                d3.selectAll('.select-decklist').property('checked', true);
+                alert('All decklists selected.');
+              }
+              if (selectedOption === 'remove') {
+                alert('Removing selected decklists from their groups...');
+                d3.selectAll('.select-decklist:checked').each(function () {
+                  const row = d3.select(this.closest('tr'));
+                  const groupName = row.select('td:nth-child(2)').text().trim();
+                  const listId = row.select('td:nth-child(3)').text().trim();
 
-                special_decklists[listId] = { group: selectedGroupName, type: 'removed' };
-              });
-            }
-            if (selectedOption === 'add') {
-              const groupNames = Object.keys(all_criterias.groups);
-              const groupName = document.createElement('select');
-              groupName.id = 'group-name-dropdown';
-              groupName.style.margin = '10px';
-              groupName.style.fontSize = '8px';
-              groupNames.forEach((name) => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                groupName.appendChild(option);
-              });
-
-              const group_popup = document.createElement('div');
-              group_popup.style.position = 'fixed';
-              group_popup.style.top = '50%';
-              group_popup.style.left = '50%';
-              group_popup.style.transform = 'translate(-50%, -50%)';
-              group_popup.style.background = '#fff';
-              group_popup.style.border = '1px solid #ccc';
-              group_popup.style.padding = '10px';
-              group_popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
-              group_popup.style.zIndex = '1000';
-              group_popup.style.fontSize = '8px';
-
-              const submitButton = document.createElement('button');
-              submitButton.textContent = 'Submit';
-              submitButton.style.margin = '10px';
-              submitButton.style.fontSize = '8px';
-
-              const cancelButton = document.createElement('button');
-              cancelButton.textContent = 'Cancel';
-              cancelButton.style.margin = '10px';
-              cancelButton.style.fontSize = '8px';
-
-              group_popup.appendChild(
-                document.createTextNode('Select a group to add selected decklists to:')
-              );
-              group_popup.appendChild(groupName);
-              group_popup.appendChild(submitButton);
-              group_popup.appendChild(cancelButton);
-              document.body.appendChild(group_popup);
-
-              cancelButton.addEventListener('click', () => {
-                group_popup.remove();
-              });
-
-              submitButton.addEventListener('click', () => {
-                const selectedGroupName = groupName.value;
-                if (selectedGroupName) {
-                  d3.selectAll('.select-decklist:checked').each(function () {
-                    const row = d3.select(this.closest('tr'));
-                    const listId = row.select('td:nth-child(3)').text().trim();
-
-                    if (all_criterias.groups[selectedGroupName]) {
-                      if (!all_criterias.groups[selectedGroupName].filter) {
-                        all_criterias.groups[selectedGroupName].filter = {};
-                      }
-                      if (!all_criterias.groups[selectedGroupName].filter['List Id']) {
-                        all_criterias.groups[selectedGroupName].filter['List Id'] = {
-                          precision: 'IS-IN',
-                          value: [],
-                        };
-                      }
-                      all_criterias.groups[selectedGroupName].filter['List Id'].value.push(listId);
+                  if (all_criterias.groups[groupName]) {
+                    if (!all_criterias.groups[groupName].filter) {
+                      all_criterias.groups[groupName].filter = {};
                     }
-                    special_decklists[listId] = { group: selectedGroupName, type: 'added' };
-                  });
+                    if (!all_criterias.groups[groupName].filter['List Id']) {
+                      all_criterias.groups[groupName].filter['List Id'] = {
+                        precision: 'IS-NOT-IN',
+                        value: [],
+                      };
+                    }
+                    all_criterias.groups[groupName].filter['List Id'].value.push(listId);
+                  }
+
+                  special_decklists[listId] = { group: selectedGroupName, type: 'removed' };
+                });
+              }
+              if (selectedOption === 'add') {
+                const groupNames = Object.keys(all_criterias.groups);
+                const groupName = document.createElement('select');
+                groupName.id = 'group-name-dropdown';
+                groupName.style.margin = '10px';
+                groupName.style.fontSize = '8px';
+                groupNames.forEach((name) => {
+                  const option = document.createElement('option');
+                  option.value = name;
+                  option.textContent = name;
+                  groupName.appendChild(option);
+                });
+
+                const group_popup = document.createElement('div');
+                group_popup.style.position = 'fixed';
+                group_popup.style.top = '50%';
+                group_popup.style.left = '50%';
+                group_popup.style.transform = 'translate(-50%, -50%)';
+                group_popup.style.background = '#fff';
+                group_popup.style.border = '1px solid #ccc';
+                group_popup.style.padding = '10px';
+                group_popup.style.boxShadow = '0px 4px 6px rgba(0, 0, 0, 0.1)';
+                group_popup.style.zIndex = '1000';
+                group_popup.style.fontSize = '8px';
+
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Submit';
+                submitButton.style.margin = '10px';
+                submitButton.style.fontSize = '8px';
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Cancel';
+                cancelButton.style.margin = '10px';
+                cancelButton.style.fontSize = '8px';
+
+                group_popup.appendChild(
+                  document.createTextNode('Select a group to add selected decklists to:')
+                );
+                group_popup.appendChild(groupName);
+                group_popup.appendChild(submitButton);
+                group_popup.appendChild(cancelButton);
+                document.body.appendChild(group_popup);
+
+                cancelButton.addEventListener('click', () => {
                   group_popup.remove();
-                } else {
-                  alert('Please select a group.');
-                }
-              });
-            }
+                });
 
-            popup.remove();
+                submitButton.addEventListener('click', () => {
+                  const selectedGroupName = groupName.value;
+                  if (selectedGroupName) {
+                    d3.selectAll('.select-decklist:checked').each(function () {
+                      const row = d3.select(this.closest('tr'));
+                      const listId = row.select('td:nth-child(3)').text().trim();
+
+                      if (all_criterias.groups[selectedGroupName]) {
+                        if (!all_criterias.groups[selectedGroupName].filter) {
+                          all_criterias.groups[selectedGroupName].filter = {};
+                        }
+                        if (!all_criterias.groups[selectedGroupName].filter['List Id']) {
+                          all_criterias.groups[selectedGroupName].filter['List Id'] = {
+                            precision: 'IS-IN',
+                            value: [],
+                          };
+                        }
+                        all_criterias.groups[selectedGroupName].filter['List Id'].value.push(listId);
+                      }
+                      special_decklists[listId] = { group: selectedGroupName, type: 'added' };
+                    });
+                    group_popup.remove();
+                  } else {
+                    alert('Please select a group.');
+                  }
+                });
+              }
+
+              popup.remove();
+            });
           });
-        });
-    }
-  });
+      }
+    });
 
-  // Create the table body
-  const tbody = table.append('tbody');
+    // Create the table body
+    tbody = table.append('tbody');
+  }
 
   const updatedDecklists = getUpdatedDecklists(data);
 
@@ -2264,24 +2270,24 @@ export function fillTable(data) {
             enter
               .selectAll('td')
               .data((d) => [
-              `<input type="checkbox" class="select-decklist" data-id="${sanitizeId(d.decklist.Metadata['List Id'])}" style="font-size: 8px;">`,
-              d.group,
-              d.decklist.Metadata['List Id'],
-              d.decklist.Metadata['Event'],
-              d.decklist.Metadata['Player Name'],
-              d.decklist.Metadata['Date'],
-              d.decklist.Metadata['Rank'],
-              d.decklist.Metadata['Hero'] || '',
-              d.decklist.Metadata['Classes'] || '',
-              d.decklist.Metadata['Talents'] || '',
-              d.decklist.Metadata['Classic Constructed Played Rounds'] || 0,
-              d.decklist.Metadata['Classic Constructed Top Rounds'] || 0,
-              d.decklist.Metadata['Classic Constructed Wins'] || 0,
-              d.decklist.Metadata['Classic Constructed Losses'] || 0,
-              d.decklist.Metadata['Classic Constructed Draws'] || 0,
-              d.decklist.Metadata['Classic Constructed Double Losses'] || 0,
-              `<button type="button" class="show-card-list" data-id="${d.decklist.Metadata['List Id']}" style="font-size: 8px;">Show Card List</button>`
-              ])
+                  `<input type="checkbox" class="select-decklist" data-id="${sanitizeId(d.decklist.Metadata['List Id'])}" style="font-size: 8px;">`,
+                  d.group,
+                  d.decklist.Metadata['List Id'],
+                  d.decklist.Metadata['Event'],
+                  d.decklist.Metadata['Player Name'],
+                  d.decklist.Metadata['Date'],
+                  d.decklist.Metadata['Rank'],
+                  d.decklist.Metadata['Hero'] || '',
+                  d.decklist.Metadata['Classes'] || '',
+                  d.decklist.Metadata['Talents'] || '',
+                  d.decklist.Metadata['Classic Constructed Played Rounds'] || 0,
+                  d.decklist.Metadata['Classic Constructed Top Rounds'] || 0,
+                  d.decklist.Metadata['Classic Constructed Wins'] || 0,
+                  d.decklist.Metadata['Classic Constructed Losses'] || 0,
+                  d.decklist.Metadata['Classic Constructed Draws'] || 0,
+                  d.decklist.Metadata['Classic Constructed Double Losses'] || 0,
+                  `<button type="button" class="show-card-list" data-id="${d.decklist.Metadata['List Id']}" style="font-size: 8px;">Show Card List</button>`
+                ])
               .enter()
               .append('td')
               .style('border', '1px solid black')
@@ -2296,80 +2302,102 @@ export function fillTable(data) {
       (exit) => exit.remove()
     );
 
-    // Add listener for "Show Card List" buttons
-    tbody.selectAll('.show-card-list').on('click', function () {
-      const decklistId = this.getAttribute('data-id');
-      const decklist = updatedDecklists.find((d) => d.decklist.Metadata['List Id'] === decklistId)?.decklist;
-      const cardList = decklist?.Cards || [];
+    // Define the handler function for the checkbox change event
+    function handleCheckboxChange(checkbox) {
+      const decklistId = checkbox.getAttribute('data-id');
+      const isChecked = checkbox.checked;
 
-      // Create the pop-up container
-      const popup = d3
-        .select('body')
-        .append('div')
-        .style('position', 'fixed')
-        .style('top', '50%')
-        .style('left', '50%')
-        .style('transform', 'translate(-50%, -50%)')
-        .style('background', '#fff')
-        .style('border', '1px solid #ccc')
-        .style('padding', '20px')
-        .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
-        .style('z-index', '1000')
-        .style('max-height', '80%')
-        .style('overflow-y', 'auto')
-        .style('font-size', '10px');
+        // Find the corresponding scatter plot point
+        const scatterPoint = d3.select(`.scatter-circle[data-id="${sanitizeId(decklistId)}"]`);
 
-      // Add title
-      popup
-        .append('h3')
-        .text(`List ID: ${decklist.Metadata['List Id']}`)
-        .style('margin-bottom', '10px');
-
-      // Add card list grouped by color with bordered divs
-      const cardListContainer = popup.append('div').style('max-height', '60vh').style('overflow-y', 'auto');
-      const colorBackgrounds = {
-        '': '#e1e1e1ff', // Light grey for no color
-        'Red': '#ffd3d3ff', // Light red
-        'Yel': '#ffffc8ff', // Light yellow
-        'Blu': '#c6e2ffff', // Light blue
-      };
-
-      // Group cards by color
-      const cardsByColor = {};
-      cardList.forEach((card) => {
-        if (!cardsByColor[card.color]) {
-          cardsByColor[card.color] = [];
+        if (!scatterPoint.empty()) {
+          scatterPoint.classed('selected', isChecked).style('stroke', isChecked ? 'black' : null).raise();
         }
-        cardsByColor[card.color].push(card);
+      }
+
+    if (!tableInitialized) {
+      tbody.selectAll('.select-decklist').on('change', function() {
+        handleCheckboxChange(this);
       });
 
-      // Create a block for each color
-      Object.entries(cardsByColor).forEach(([color, cards]) => {
-        const colorBlock = cardListContainer
+      // Add listener for "Show Card List" buttons
+      tbody.selectAll('.show-card-list').on('click', function () {
+        const decklistId = this.getAttribute('data-id');
+        const decklist = updatedDecklists.find((d) => d.decklist.Metadata['List Id'] === decklistId)?.decklist;
+        const cardList = decklist?.Cards || [];
+
+        // Create the pop-up container
+        const popup = d3
+          .select('body')
           .append('div')
-          .style('margin-bottom', '10px')
-          .style('padding', '10px')
-          .style('border', '1px solid black')
-          .style('background-color', colorBackgrounds[color] || '#d3d3d3'); // Default to light grey if color is not found
+          .style('position', 'fixed')
+          .style('top', '50%')
+          .style('left', '50%')
+          .style('transform', 'translate(-50%, -50%)')
+          .style('background', '#fff')
+          .style('border', '1px solid #ccc')
+          .style('padding', '20px')
+          .style('box-shadow', '0px 4px 6px rgba(0, 0, 0, 0.1)')
+          .style('z-index', '1000')
+          .style('max-height', '80%')
+          .style('overflow-y', 'auto')
+          .style('font-size', '10px');
 
-        // Add header with color name
-        const colorName = color === '' ? 'Colorless' : color === 'Red' ? 'Red' : color === 'Yel' ? 'Yellow' : color === 'Blu' ? 'Blue' : 'Unknown';
-        colorBlock.append('h4').text(colorName).style('margin-bottom', '5px').style('margin-top', '0px');
+        // Add title
+        popup
+          .append('h3')
+          .text(`List ID: ${decklist.Metadata['List Id']}`)
+          .style('margin-bottom', '10px');
 
-        cards.forEach((card) => {
-          colorBlock.append('div').text(`x${card.quantity} - ${card.card_name}`);
+        // Add card list grouped by color with bordered divs
+        const cardListContainer = popup.append('div').style('max-height', '60vh').style('overflow-y', 'auto');
+        const colorBackgrounds = {
+          '': '#e1e1e1ff', // Light grey for no color
+          'Red': '#ffd3d3ff', // Light red
+          'Yel': '#ffffc8ff', // Light yellow
+          'Blu': '#c6e2ffff', // Light blue
+        };
+
+        // Group cards by color
+        const cardsByColor = {};
+        cardList.forEach((card) => {
+          if (!cardsByColor[card.color]) {
+            cardsByColor[card.color] = [];
+          }
+          cardsByColor[card.color].push(card);
         });
+
+        // Create a block for each color
+        Object.entries(cardsByColor).forEach(([color, cards]) => {
+          const colorBlock = cardListContainer
+            .append('div')
+            .style('margin-bottom', '10px')
+            .style('padding', '10px')
+            .style('border', '1px solid black')
+            .style('background-color', colorBackgrounds[color] || '#d3d3d3'); // Default to light grey if color is not found
+
+          // Add header with color name
+          const colorName = color === '' ? 'Colorless' : color === 'Red' ? 'Red' : color === 'Yel' ? 'Yellow' : color === 'Blu' ? 'Blue' : 'Unknown';
+          colorBlock.append('h4').text(colorName).style('margin-bottom', '5px').style('margin-top', '0px');
+
+          cards.forEach((card) => {
+            colorBlock.append('div').text(`x${card.quantity} - ${card.card_name}`);
+          });
+        });
+
+        // Add close button
+        popup
+          .append('button')
+          .text('Close')
+          .style('margin-top', '10px')
+          .on('click', () => {
+            popup.remove();
+          });
       });
+    }
 
-      // Add close button
-      popup
-        .append('button')
-        .text('Close')
-        .style('margin-top', '10px')
-        .on('click', () => {
-          popup.remove();
-        });
-    });
+    tableInitialized = true;
+    console.log('Table filled successfully.');
 }
 
 export function clearCriterias() {
