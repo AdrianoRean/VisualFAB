@@ -12,8 +12,8 @@ let brush;
 
 // Set the dimensions and margins of the graphs
 const general_margin = { top: 10, right: 0, bottom: 30, left: 0 },
-  general_width = 350 - general_margin.left - general_margin.right,
-  general_height = 300 - general_margin.top - general_margin.bottom;
+  general_width = 300 - general_margin.left - general_margin.right,
+  general_height = 250 - general_margin.top - general_margin.bottom;
 
 let all_criterias = {
   filters: {},
@@ -47,6 +47,12 @@ let group_index = 0;
 let selected_matchups = [];
 let scatter_updated = false;
 const graphs_filters = {};
+
+function sanitizeId(str) {
+  return String(str)
+    .trim()
+    .replace(/[^a-zA-Z0-9\-_]/g, '_'); // Replace non-safe chars with underscore
+}
 
 function getGradient(groups) {
   const n = groups.length;
@@ -171,6 +177,7 @@ export function createForm(existingGroupName = null) {
   formDiv.style.margin = '5px';
   formDiv.classList.add('form-container');
   formDiv.style.fontSize = '8px';
+  formDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
 
   formDiv.innerHTML = `
     <fieldset style="font-size: 8px;">
@@ -679,7 +686,7 @@ export function setLegend(group_names) {
 
   // Create a new legend
   const legend = d3
-    .select('#visualizations-container')
+    .select('#visualizations')
     .append('div')
     .attr('id', 'legend')
     .style('display', 'inline-block')
@@ -690,9 +697,7 @@ export function setLegend(group_names) {
     .style('padding', '5px')
     .style('box-shadow', '0px 4px 8px rgba(0, 0, 0, 0.2)')
     .style('font-family', 'Arial, sans-serif')
-    .style('font-size', '10px')
-    .style('position', 'relative') // Ensure relative positioning
-    .style('top', -general_height + 17 * (group_names.length - 1) + 'px'); // Move the legend higher
+    .style('font-size', '10px');
 
   legend.append('div').style('font-weight', 'bold').style('margin-bottom', '12px').text('Legend');
 
@@ -766,7 +771,7 @@ export function timeseriesGraph(name_of_element, data) {
   const margin = {
     top: general_margin.top,
     right: general_margin.right + 10,
-    bottom: general_margin.bottom + 10,
+    bottom: general_margin.bottom -3,
     left: general_margin.left + 30,
   };
 
@@ -907,7 +912,7 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   const height = general_height;
 
   const button_height = 20;
-  const button_margin = 5;
+  const button_margin = 10;
 
   function createMatchupPopup(form_heroes, all_criterias, name_of_element) {
     // Check if the button already exists to avoid duplicates
@@ -1704,6 +1709,11 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
       )
       .attr('fill', (d) => ensureSVGGradient(svg, d[2].group, color))
       .on('mouseover', function (event, d) {
+        d3.select(this)
+          .attr('stroke', 'black')
+          .attr('stroke-dasharray', '4,2')
+          .attr('stroke-width', 1)
+          .raise(); // Bring the point to the top
         tooltip
           .style('display', 'block')
           .html(
@@ -1718,6 +1728,10 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
         tooltip.style('left', event.pageX + 10 + 'px').style('top', event.pageY - 28 + 'px');
       })
       .on('mouseout', function () {
+        d3.select(this)
+          .attr('stroke', null)
+          .attr('stroke-dasharray', null)
+          .attr('stroke-width', null);
         tooltip.style('display', 'none');
       })
       .on('click', function (event, d) {
@@ -1727,13 +1741,15 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
 
         if (isSelected) {
           circle.classed('selected', false).style('stroke', null);
-          d3.select(`input[data-id="${d[2].id}"]`).property('checked', false);
+          d3.select(`input[data-id="${sanitizeId(d[2].id)}"]`).property('checked', false);
         } else {
           circle.classed('selected', true).style('stroke', 'black');
-          d3.select(`input[data-id="${d[2].id}"]`).property('checked', true);
+          d3.select(`input[data-id="${sanitizeId(d[2].id)}"]`).property('checked', true);
         }
       });
 
+    let currentTransform = d3.zoomIdentity;
+    
     // Add brush functionality
     brush = d3
       .brush()
@@ -1747,15 +1763,17 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
           const [[x0, y0], [x1, y1]] = selection;
 
           pointsGroup.each(function (d) {
-            const cx = x(d[0]);
-            const cy = y(d[1]);
+            const newX = currentTransform.rescaleX(x);
+            const newY = currentTransform.rescaleY(y);
+            const cx = newX(d[0]);
+            const cy = newY(d[1]) + graph_margins * 3;
             const isBrushed = cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
 
             d3.select(this)
               .classed('selected', isBrushed)
               .style('stroke', isBrushed ? 'black' : null);
 
-            d3.select(`input[data-id="${d[2].id}"]`).property('checked', isBrushed);
+            d3.select(`input[data-id="${sanitizeId(d[2].id)}"]`).property('checked', isBrushed);
           });
         }
       });
@@ -1766,13 +1784,14 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     // Add zoom functionality
     const zoom = d3
       .zoom()
-      .scaleExtent([1, 10]) // Zoom scale
+      .scaleExtent([1, 20]) // Zoom scale
       .translateExtent([
         [0, 0],
         [svg_height, svg_height],
       ]) // Pan boundaries
       .on('zoom', (event) => {
         if (zoomActive) {
+          currentTransform = event.transform;
           const transform = event.transform;
           const newX = transform.rescaleX(x);
           const newY = transform.rescaleY(y);
@@ -2245,7 +2264,7 @@ export function fillTable(data) {
             enter
               .selectAll('td')
               .data((d) => [
-              `<input type="checkbox" class="select-decklist" data-id="${d.decklist.Metadata['List Id']}" style="font-size: 8px;">`,
+              `<input type="checkbox" class="select-decklist" data-id="${sanitizeId(d.decklist.Metadata['List Id'])}" style="font-size: 8px;">`,
               d.group,
               d.decklist.Metadata['List Id'],
               d.decklist.Metadata['Event'],

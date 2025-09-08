@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>VisualFAB</title>
 </head>
-<body>
+<body style="font-family: Arial, sans-serif; background: rgba(222, 184, 135, 0.2);"></body>
   <div style="margin: 10px auto; font-size: 10px; text-align: center;"></div>
     <h1 style="display: inline; padding: 2px 2px; margin-right: 2px; font-size: 20px;">VisualFAB</h1>  
     <div class="menu-container" style="display: inline-block; border: 1px solid black; padding: 2px;">
@@ -43,19 +43,21 @@
       formsContainer.style.display = formsContainer.style.display === 'none' ? 'block' : 'none';
     });
   </script>
-  <div id="visualizations-container" style="text-align: left; width: 100%; border: 1px solid black;">
+  <div id="visualizations-container" style="text-align: left; width: 100%; border: 1px solid black; padding-bottom: 2px;">
     <div style="display: flex; width: 80%; justify-content: space-around; font-weight: bold; padding: 5px;">
       <span>Winrate Timeseries</span>
       <span>Winrate Matchups</span>
       <span>Decklist Card List Similarity</span>
     </div>
-    <div id="timeseries_viz" style="display: inline-block; border: 1px solid black;"></div>
-    <div id="parallel_coordinates_viz" style="display: inline-block; border: 1px solid black;"></div>
-    <div id="scatter_plot_viz" style="display: inline-block; border: 1px solid black;"></div>
+    <div id="visualizations" style="display: flex; align-items: flex-start; gap: 10px;">
+      <div id="timeseries_viz" style="display: inline-block; border: 1px solid black; background-color: rgba(255, 255, 255, 0.8);"></div>
+      <div id="parallel_coordinates_viz" style="display: inline-block; border: 1px solid black; background-color: rgba(255, 255, 255, 0.8);"></div>
+      <div id="scatter_plot_viz" style="display: inline-block; border: 1px solid black; background-color: rgba(255, 255, 255, 0.8);"></div>
+    </div>
   </div>
   <br>
-  <br>
   <div id="decklists-table-container" style="border: 1px solid black;">
+    <h4 style="text-align: center; padding: 0; margin: 5px;">Decklists Table</h4>
     <div id="filters-and-head"></div>
     <div id="table-container" style="height: 400px; overflow: auto;"></div>
   </div>
