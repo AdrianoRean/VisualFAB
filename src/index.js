@@ -11,6 +11,8 @@ let brushActive = false;
 let brush;
 let isEdited = false;
 
+const waitConst = 300; // milliseconds
+
 // Set the dimensions and margins of the graphs
 const general_margin = { top: 10, right: 0, bottom: 30, left: 0 },
   general_width = 300 - general_margin.left - general_margin.right,
@@ -99,7 +101,7 @@ function ensureSVGGradient(svg, groups, colorFn) {
   return `url(#${gradientId})`;
 }
 
-function debounce(func, wait = 200) {
+function debounce(func, wait = waitConst) {
   let timeout;
   return function (...args) {
     clearTimeout(timeout);
@@ -1442,6 +1444,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   const height = general_height;
 
   let scatterPlotDiv = document.querySelector(name_of_element);
+  let leftDiv;
   let warningText;
   let fetchScatterPlotBtn;
 
@@ -1458,7 +1461,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
       .style('vertical-align', 'top');
 
     // Add a div with dotted borders to the left of the parent div
-    const leftDiv = document.createElement('div');
+    leftDiv = document.createElement('div');
     leftDiv.style.border = '2px dotted black';
     leftDiv.style.width = '20%';
     leftDiv.style.height = '100%';
@@ -1473,6 +1476,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     leftDiv.style.flexDirection = 'column';
     leftDiv.style.gap = '8px';
     leftDiv.style.fontSize = '8px';
+    leftDiv.id = 'scatter-plot-left-div';
 
     // Append the left div to the parent div
     scatterPlotDiv.appendChild(leftDiv);
@@ -1614,6 +1618,8 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     warningText.id = 'scatter-plot-warning';
     warningText.style.fontSize = '8px';
     leftDiv.appendChild(warningText);
+    scatterPlotDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+    leftDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
 
     // Add a bordered div to show the number of neighbors used for UMAP
     const neighborsDiv = document.createElement('div');
@@ -1759,6 +1765,9 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     console.log('Scatter plot not updated.');
     warningText = d3.select(`#scatter-plot-warning`);
     warningText.style('display', 'block');
+    leftDiv = d3.select('#scatter-plot-left-div');
+    scatterPlotDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+    leftDiv.style('background-color', 'rgba(255, 0, 0, 0.1)');
 
     fetchScatterPlotBtn = d3.select(`#update-scatter-plot-btn`);
     fetchScatterPlotBtn.style('background-color', 'red');
@@ -1766,6 +1775,9 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     console.log('Scatter plot updated successfully.');
     warningText = d3.select(`#scatter-plot-warning`);
     warningText.style('display', 'none');
+    leftDiv = d3.select('#scatter-plot-left-div');
+    scatterPlotDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+    leftDiv.style('background-color', 'rgba(255, 255, 255, 0.8)');
 
     fetchScatterPlotBtn = d3.select(`#update-scatter-plot-btn`);
     fetchScatterPlotBtn.style('background-color', 'green');
@@ -1795,6 +1807,9 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     isEdited = false;
     neighborsInput.property('value', metadata.nNeighbors);
     neighborsInput.style('background-color', 'white');
+    leftDiv = d3.select('#scatter-plot-left-div');
+    scatterPlotDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+    leftDiv.style('background-color', 'rgba(255, 255, 255, 0.8)');
 
     const graph_margins = 5;
 
@@ -2124,7 +2139,7 @@ export function fillTable(data) {
 
       filters[column] = '';
 
-      filterInput.on('input', function () {
+      filterInput.on('input', debounce(function () {
         const filterValue = this.value.toLowerCase();
         filters[column] = filterValue;
 
@@ -2175,7 +2190,7 @@ export function fillTable(data) {
           });
           row.style('display', isVisible ? '' : 'none');
         });
-      });
+      }));
     });
 
     // Add a reset button for filters
