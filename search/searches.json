@@ -101,6 +101,385 @@
     "special_decklists": {}
   },
   {
+    "search_name": "Good Warriors",
+    "all_criterias": {
+      "filters": {},
+      "group_form_names": {
+        "0": "Dorinthea Ironsong",
+        "1": "Kassai of the Golden Sand",
+        "2": "Fang Dracai of Blades"
+      },
+      "groups": {
+        "Dorinthea Ironsong": {
+          "filter": {
+            "Format": {
+              "precision": "IS",
+              "value": "Classic Constructed"
+            },
+            "Date": {
+              "precision": "DATE",
+              "value": {
+                "min": "2019-01-01T00:00",
+                "max": "2025-09-09T10:02"
+              }
+            },
+            "Rank": {
+              "precision": "RANGE",
+              "value": {
+                "min": "1",
+                "max": "32"
+              }
+            },
+            "Hero": {
+              "precision": "IS-IN",
+              "value": [
+                "Dorinthea Ironsong"
+              ]
+            },
+            "Matchups Winrate": {
+              "precision": "COMPOUND",
+              "value": {
+                "All Top8": {
+                  "type": "selection",
+                  "min": 0,
+                  "max": 100
+                },
+                "Gravy Bones, Shipwrecked Looter": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Arakni, 5L!p3d 7hRu 7h3 cR4X": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Cindra, Dracai of Retribution": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Oscilio, Constella Intelligence": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Prism, Awakener of Sol": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Verdance, Thorn of the Rose": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Victor Goldmane, High and Mighty": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Dash I/O": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Azalea, Ace in the Hole": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Kano, Dracai of Aether": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            }
+          }
+        },
+        "Kassai of the Golden Sand": {
+          "filter": {
+            "Date": {
+              "precision": "DATE",
+              "value": {
+                "min": "2019-01-01T00:00",
+                "max": "2025-09-09T10:09"
+              }
+            },
+            "Format": {
+              "precision": "IS",
+              "value": "Classic Constructed"
+            },
+            "Rank": {
+              "precision": "RANGE",
+              "value": {
+                "min": "1",
+                "max": "32"
+              }
+            },
+            "Matchups Winrate": {
+              "precision": "COMPOUND",
+              "value": {
+                "All Top8": {
+                  "type": "selection",
+                  "min": 0,
+                  "max": 100
+                },
+                "Gravy Bones, Shipwrecked Looter": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Arakni, 5L!p3d 7hRu 7h3 cR4X": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Cindra, Dracai of Retribution": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Oscilio, Constella Intelligence": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Prism, Awakener of Sol": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Verdance, Thorn of the Rose": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Victor Goldmane, High and Mighty": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Dash I/O": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Azalea, Ace in the Hole": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Kano, Dracai of Aether": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "Hero": {
+              "precision": "IS-IN",
+              "value": [
+                "Kassai of the Golden Sand"
+              ]
+            }
+          }
+        },
+        "Fang Dracai of Blades": {
+          "filter": {
+            "Date": {
+              "precision": "DATE",
+              "value": {
+                "min": "2019-01-01T00:00",
+                "max": "2025-09-09T10:09"
+              }
+            },
+            "Format": {
+              "precision": "IS",
+              "value": "Classic Constructed"
+            },
+            "Rank": {
+              "precision": "RANGE",
+              "value": {
+                "min": "1",
+                "max": "32"
+              }
+            },
+            "Matchups Winrate": {
+              "precision": "COMPOUND",
+              "value": {
+                "All Top8": {
+                  "type": "selection",
+                  "min": 0,
+                  "max": 100
+                },
+                "Gravy Bones, Shipwrecked Looter": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Arakni, 5L!p3d 7hRu 7h3 cR4X": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Cindra, Dracai of Retribution": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Oscilio, Constella Intelligence": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Prism, Awakener of Sol": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Verdance, Thorn of the Rose": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Victor Goldmane, High and Mighty": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Dash I/O": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Azalea, Ace in the Hole": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                },
+                "Kano, Dracai of Aether": {
+                  "type": "hero",
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "Hero": {
+              "precision": "IS-IN",
+              "value": [
+                "Fang, Dracai of Blades"
+              ]
+            }
+          }
+        }
+      },
+      "graphs": {
+        "timeseries_winrates": {
+          "type": "timeseries"
+        },
+        "parallel_coordinates_matchups": {
+          "type": "parallel_coordinates",
+          "matchups": [
+            {
+              "name": "All Top8",
+              "type": "selection",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Gravy Bones, Shipwrecked Looter",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Arakni, 5L!p3d 7hRu 7h3 cR4X",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Cindra, Dracai of Retribution",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Oscilio, Constella Intelligence",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Prism, Awakener of Sol",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Verdance, Thorn of the Rose",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Victor Goldmane, High and Mighty",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Dash I/O",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Azalea, Ace in the Hole",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Kano, Dracai of Aether",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          ]
+        }
+      },
+      "selections": [
+        "All Top8"
+      ]
+    },
+    "special_decklists": {}
+  },
+  {
     "search_name": "Dori Strane",
     "all_criterias": {
       "filters": {},
@@ -162,6 +541,24 @@
                 "IS-NOT-IN": [],
                 "exclusive": true
               }
+            },
+            "Date": {
+              "precision": "DATE",
+              "value": {
+                "min": "2019-01-01T00:00",
+                "max": "2025-09-09T10:50"
+              }
+            },
+            "Format": {
+              "precision": "IS",
+              "value": "Classic Constructed"
+            },
+            "Rank": {
+              "precision": "RANGE",
+              "value": {
+                "min": "1",
+                "max": "512"
+              }
             }
           }
         }
@@ -172,10 +569,61 @@
         },
         "parallel_coordinates_matchups": {
           "type": "parallel_coordinates",
-          "matchups": []
+          "matchups": [
+            {
+              "name": "All Top8",
+              "type": "selection",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Gravy Bones, Shipwrecked Looter",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Dorinthea Ironsong",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Arakni, 5L!p3d 7hRu 7h3 cR4X",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Cindra, Dracai of Retribution",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            },
+            {
+              "name": "Oscilio, Constella Intelligence",
+              "type": "hero",
+              "range": {
+                "min": 0,
+                "max": 100
+              }
+            }
+          ]
         }
       },
-      "selections": []
+      "selections": [
+        "All Top8"
+      ]
     },
     "special_decklists": {
       "dori s": [

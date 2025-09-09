@@ -34785,7 +34785,7 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters) {
   console.log('Data for parallel coordinates graph:', JSON.parse(JSON.stringify(data)));
 
   const margin = general_margin;
-  const width = general_width;
+  let width = general_width;
   const height = general_height;
 
   const button_height = 20;
@@ -34840,26 +34840,28 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters) {
       <h3>Add Matchups</h3>
       <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
       ${selections_names
+      .map(
+        (selection) => `
+        <label class="matchup-label" style="background-color:${color(selection)}">
+        <input type="checkbox" class="matchup-checkbox" id="matchup-input-${selection}" value="${selection}" 
+        ${all_criterias.graphs['parallel_coordinates_matchups']?.matchups?.some((m) => m.name === selection) ? 'checked' : ''}>
+        Group: ${selection}
+        </label><br>
+      `
+      )
+      .join('')}
+      ${form_heroes
         .map(
-          (selection) => `
-          <label class="matchup-label" style="background-color:${color(selection)}">
-            <input type="checkbox" class="matchup-checkbox" id="matchup-input-${selection}" value="${selection}">
-            Group: ${selection}
-          </label><br>
-        `
+        (hero) => `
+        <label>
+        <input type="checkbox" class="matchup-checkbox" value="${hero}" 
+        ${all_criterias.graphs['parallel_coordinates_matchups']?.matchups?.some((m) => m.name === hero) ? 'checked' : ''}>
+        ${hero}
+        </label><br>
+      `
         )
         .join('')}
-        ${form_heroes
-          .map(
-            (hero) => `
-          <label>
-            <input type="checkbox" class="matchup-checkbox" value="${hero}">
-            ${hero}
-          </label><br>
-        `
-          )
-          .join('')}
-        
+      
       </div>
       <br>
       <button id="matchup-popup-submit">Submit</button>
@@ -35005,6 +35007,11 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters) {
   console.log('Dimensions:', dimensions);
   data = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation issues
 
+  const ideal_width = dimensions.length * 75;
+  if (ideal_width > general_width) {
+    width = ideal_width;
+  }
+
   // Set the size of the HTML element
   d3__WEBPACK_IMPORTED_MODULE_0__.select(name_of_element)
     .style('width', `${width + margin.left + margin.right}px`)
@@ -35136,10 +35143,35 @@ function parallelCoordinatesGraph(name_of_element, data, this_graph_filters) {
     .append('text')
     .style('text-anchor', 'middle')
     .attr('y', -9)
-    .text(function (d) {
-      return d;
+    .each(function (d) {
+      const text = d3__WEBPACK_IMPORTED_MODULE_0__.select(this);
+      const label = String(d);
+      if (dimensions.length > 2) {
+        const words = String(d).split(' ');
+        text.text(words.slice(0, 2).join(' '));
+      } else {
+        text.text(label);
+      }
     })
-    .style('fill', (d) => (selections_names.includes(d) ? color(d) : 'black'));
+    .on('mouseover', function (event, d) {
+      if (dimensions.length > 2) {
+        tooltip
+          .style('display', 'block')
+          .html(`${d}`)
+          .style('left', event.pageX + 10 + 'px')
+          .style('top', event.pageY - 28 + 'px');
+      }
+    })
+    .on('mousemove', function (event) {
+      if (dimensions.length > 2) {
+        tooltip.style('left', event.pageX + 10 + 'px').style('top', event.pageY - 28 + 'px');
+      }
+    })
+    .on('mouseout', function () {
+      tooltip.style('display', 'none');
+    })
+    .style('fill', (d) => (selections_names.includes(d) ? color(d) : 'black'))
+    .style('font-size', '8px');
 
   // Add movable point for filters
   let yMin, yMax;
@@ -36587,69 +36619,31 @@ async function getDataAndUpdateViz() {
 }
 
 async function restartViz() {
-  console.log('Form submitted. Processing criteria...');
-  const allForms = formsContainer.querySelectorAll('.form-container');
-  const groups = {};
-  allForms.forEach((form) => {
-    const formData = new FormData(form);
-    console.log('Processing form:', formData);
-    const group = {};
-    const group_name = formData.get('group-name').trim();
+  console.log('Resetting all criteria and forms...');
 
-    const heroes = Array.from(form.querySelectorAll('input[name="heroes"]:checked')).map(
-      (input) => input.value
-    );
-    if (heroes.length > 0) {
-      group['Hero'] = { precision: 'IS-IN', value: heroes };
-    }
-    const format = form.querySelector('input[name="format"]:checked')?.value;
-    if (format) {
-      group['Format'] = { precision: 'IS', value: format };
-    }
-    const startDate = formData.get('start-date');
-    const endDate = formData.get('end-date');
-    if (startDate && endDate) {
-      group['Date'] = { precision: 'DATE', value: { min: startDate, max: endDate } };
-    }
-    const rankMin = formData.get('rank-min');
-    const rankMax = formData.get('rank-max');
-    if (rankMin && rankMax) {
-      group['Rank'] = {
-        precision: 'RANGE',
-        value: { min: parseInt(rankMin, 10), max: parseInt(rankMax, 10) },
-      };
-    }
-    if (Object.keys(group).length > 0) {
-      groups[group_name] = { filter: group };
-    }
-  });
+  // Clear all forms
+  formsContainer.innerHTML = '';
 
-  let criteria = {
+  // Reset all_criterias object
+  all_criterias = {
     filters: {},
-    selections: all_criterias.selections ? all_criterias.selections : [],
-    groups: Object.values(groups).length > 0 ? groups : {},
+    group_form_names: {},
+    groups: {},
     graphs: {
-      timeseries_winrates: {
-        type: 'timeseries',
-      },
-      parallel_coordinates_matchups: {
-        type: 'parallel_coordinates',
-        matchups: [],
-      },
-      /*
-        ,
-        "scatter_plot_card_presence": {
-          "type": "scatter_plot"
-        }
-        */
+      timeseries_winrates: { type: 'timeseries'},
+      parallel_coordinates_matchups: { type: 'parallel_coordinates' , matchups: []},
     },
+    selections: [],
   };
 
-  console.log('Criteria prepared:', JSON.parse(JSON.stringify(criteria)));
-  // Store the criteria and filters for future use
-  all_criterias['filters'] = criteria.filters;
-  all_criterias['groups'] = criteria.groups;
-  all_criterias['graphs'] = criteria.graphs;
+  // Reset group index
+  group_index = 0;
+
+  // Add the first form
+  createForm();
+
+  console.log('All criteria and forms have been reset.');
+
 
   try {
     await getDataAndUpdateViz();
