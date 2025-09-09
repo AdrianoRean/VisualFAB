@@ -959,6 +959,7 @@ export function timeseriesGraph(name_of_element, data) {
 
 export function adjustGroupFilters(data, dim, this_graph_filters) {
   // Ensure all groups have the matchup filter with current graph filters
+  console.log('Adjusting group filters with dim:', dim, 'and this_graph_filters:', this_graph_filters);
   Object.keys(this_graph_filters).forEach((dim) => {
     const existingMatchup = all_criterias.graphs['parallel_coordinates_matchups'].matchups.find(
       (matchup) => matchup.name === dim
@@ -2869,6 +2870,11 @@ export async function restartViz() {
 
   // Reset group index
   group_index = 0;
+
+  // Reset graph filters!
+  for (const key in graphs_filters) {
+    delete graphs_filters[key];
+  }
 
   // Add the first form
   createForm();
