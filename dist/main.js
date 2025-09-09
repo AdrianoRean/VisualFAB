@@ -33817,15 +33817,12 @@ let all_criterias = {
 
 var color;
 const range_of_colors = [
-  '#E69F00',
-  '#56B4E9',
-  '#009E73',
-  '#F0E442',
-  '#0072B2',
-  '#D55E00',
-  '#CC79A7',
-  '#999999',
-  '#88CCEE',
+  '#EECC66',
+  '#EE99AA',
+  '#6699CC',
+  '#997700',
+  '#994455',
+  '#004488',
 ];
 
 const formsContainer = document.getElementById('forms-container');
