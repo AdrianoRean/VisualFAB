@@ -147,7 +147,6 @@ function groupAndSortGroupsByDate(groupedDecklists) {
         console.log(`Processing group "${group}" with ${decklists.length} decklists`);
         const subgroups = {};
 
-        // Divide decklists into subgroups by Metadata.Date
         for (const decklist of decklists) {
             const date = decklist.Metadata.Date;
             if (!subgroups[date]) {
@@ -159,7 +158,7 @@ function groupAndSortGroupsByDate(groupedDecklists) {
 
         // Sort subgroups by date in ascending order
         const sortedSubgroups = Object.keys(subgroups)
-            .sort((a, b) => new Date(a) - new Date(b)) // Compare dates
+            .sort((a, b) => new Date(a) - new Date(b))
             .reduce((acc, date) => {
                 acc[date] = subgroups[date];
                 return acc;
@@ -208,7 +207,6 @@ function timeseriesWinrates(grouped_decklists) {
         console.log("Starting to process each group for winrate calculation");
         for (const [group, lists] of Object.entries(grouped_decklists)) {
           console.log(`Group "${group}" contains ${lists.length} decklists`);
-          // You can further process each group's decklists if needed
           const time_divided_groups = groupAndSortGroupsByDate({ [group]: lists });
           console.log("Time divided groups");
           let timed_winrates = [];
@@ -397,7 +395,6 @@ function constructCardMatrix(grouped_decklists) {
 async function performUMAP(decklistsMatrix, nNeighbors = undefined) {
 
     const {cardMatrix, cardInfo} = decklistsMatrix;
-    //shape = [n_decks, n_cards]
     const nDecklists = cardMatrix.length;
     if (nNeighbors === undefined){
         nNeighbors = Math.max(2, Math.min(15, Math.ceil(nDecklists * 0.15)));
@@ -437,7 +434,6 @@ async function performUMAP(decklistsMatrix, nNeighbors = undefined) {
 
 const searchFilePath = path.join('search', 'searches.json');
 
-// Helper function to load searches from file
 async function loadSearches() {
     try {
         const data = await readFile(searchFilePath, 'utf-8');
@@ -452,7 +448,6 @@ async function loadSearches() {
     }
 }
 
-// Helper function to save searches to file
 async function saveSearches(searches, newSearch) {
     try {
         if (searches.some(search => search.search_name === newSearch.search_name)) {
@@ -588,20 +583,16 @@ app.post('/api/decklists/calculate', async (req, res) => {
         };
         for (const [graph_name, request_data] of Object.entries(graph_requests)) {
             console.log(`Processing ${graph_name} with data:`, request_data);
-            // Here you would call the appropriate function to handle each graph type
             switch (request_data.type) {
             case 'timeseries':
-                // Call the function to handle timeseries graph
                 let timeseries_data = timeseriesWinrates(grouped_decklists);
                 json_response[graph_name] = timeseries_data;
                 break;
             case 'parallel_coordinates':
-                // Call the function to handle parallel coordinates graph
                 let parallel_coordinates_data = parallelMatchups(grouped_decklists, request_data.matchups, decksToCompare);
                 json_response[graph_name] = parallel_coordinates_data;
                 break;
             case 'scatter_plot':
-                // Call the function to handle scatter plot graph
                 let scatter_plot_data = await performUMAP(constructCardMatrix(grouped_decklists), request_data.nNeighbors);
                 json_response[graph_name] = scatter_plot_data;
                 break;
@@ -616,7 +607,7 @@ app.post('/api/decklists/calculate', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-// API to load a specific search by name
+
 app.get('/api/decklists/search/load', async (req, res) => {
     try {
         console.log('GET /api/decklists/search/load - Request received');
@@ -640,7 +631,6 @@ app.get('/api/decklists/search/load', async (req, res) => {
     }
 });
 
-// API to save a new search
 app.post('/api/decklists/search/save', async (req, res) => {
     try {
         console.log('POST /api/decklists/search/save - Request received');
@@ -658,7 +648,6 @@ app.post('/api/decklists/search/save', async (req, res) => {
     }
 });
 
-// API to get the list of search names
 app.get('/api/decklists/search/names', async (req, res) => {
     try {
         console.log('GET /api/decklists/search/names - Request received');
@@ -687,7 +676,6 @@ app.delete('/api/decklists/search/delete', async (req, res) => {
     }
 });
 
-// API to save a new selection
 app.post('/api/decklists/selection/save', async (req, res) => {
     try {
         console.log('POST /api/decklists/selection/save - Request received');
@@ -718,7 +706,6 @@ app.post('/api/decklists/selection/save', async (req, res) => {
     }
 });
 
-// API to get the list of selection names
 app.get('/api/decklists/selection/names', async (req, res) => {
     try {
         console.log('GET /api/decklists/selection/names - Request received');
@@ -731,7 +718,6 @@ app.get('/api/decklists/selection/names', async (req, res) => {
     }
 });
 
-// API to load a specific selection by name
 app.get('/api/decklists/selection/load', async (req, res) => {
     try {
         console.log('GET /api/decklists/selection/load - Request received');

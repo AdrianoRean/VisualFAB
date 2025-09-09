@@ -79,7 +79,7 @@ function ensureSVGGradient(svg, groups, colorFn) {
       .attr('x1', '0%')
       .attr('y1', '0%')
       .attr('x2', '0%')
-      .attr('y2', '100%'); // vertical
+      .attr('y2', '100%');
 
     const n = groups.length;
     for (let i = 0; i < n; i++) {
@@ -112,7 +112,6 @@ addFormBtn.addEventListener('click', () => {
   getDataAndUpdateViz();
 });
 
-// Add this once, outside drawViz
 const tooltipColor = '#e1e1e1ff';
 const tooltip = d3
   .select('body')
@@ -272,13 +271,13 @@ export function createForm(existingGroupName = null) {
 
   // Add functionality to show special decklists
   showSpecialDecklistsBtn.addEventListener('click', () => {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     const groupName = all_criterias.group_form_names[formId];
     special_decklists[groupName] = special_decklists[groupName] || [];
     const groupSpecialDecklists = Object.values(special_decklists[groupName])
       .map((details) => ({ decklistId: details.listId, type: details.type }));
 
-    // Create the pop-up container
+    
     const popup = d3
       .select('body')
       .append('div')
@@ -295,13 +294,13 @@ export function createForm(existingGroupName = null) {
       .style('overflow-y', 'auto')
       .style('font-size', '10px');
 
-    // Add title
+    
     popup
       .append('h3')
       .text(`Special Decklists for Group: ${groupName}`)
       .style('margin-bottom', '10px');
 
-    // Add a note about whether the List Id filter is exclusive
+    
     const isExclusive = all_criterias.groups[groupName]?.filter?.['List Id']?.value?.exclusive;
     popup
       .append('p')
@@ -320,7 +319,7 @@ export function createForm(existingGroupName = null) {
           .style('margin-bottom', '10px')
           .style('padding', '10px')
           .style('border', '1px solid black')
-          .style('background-color', category === 'added' ? '#d4edda' : '#f8d7da'); // Green for added, red for removed
+          .style('background-color', category === 'added' ? '#d4edda' : '#f8d7da');
 
         categoryDiv
           .append('h4')
@@ -334,7 +333,7 @@ export function createForm(existingGroupName = null) {
       }
     });
 
-    // Add close button
+    
     popup
       .append('button')
       .text('Close')
@@ -344,7 +343,7 @@ export function createForm(existingGroupName = null) {
       });
   });
 
-  // Add hover tooltip
+  
   const rankHelpSpan = formDiv.querySelector('#rank-help-span');
   rankHelpSpan.addEventListener('mouseover', (event) => {
     tooltip
@@ -363,7 +362,7 @@ export function createForm(existingGroupName = null) {
   // Add listeners to update all_criterias when values change
   const groupNameInput = formDiv.querySelector('input[name="group-name"]');
   function updateGroupName() {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     let newGroupName = groupNameInput.value.replace(',', ' ').replace(/[^a-zA-Z0-9-_ ]/g, ''); // Sanitize input by trimming whitespace and removing special characters
     console.log('New Group Name:', newGroupName, '<formId>', formId);
 
@@ -377,11 +376,11 @@ export function createForm(existingGroupName = null) {
     if (isDuplicate) {
       const randomSuffix = Math.random().toString(36).substring(2, 6); // Generate a random short string
       newGroupName = `${newGroupName}_${randomSuffix}`;
-      groupNameInput.value = newGroupName; // Update the input field with the new unique name
+      groupNameInput.value = newGroupName; 
     }
 
     const old_name = all_criterias.group_form_names[formId];
-    all_criterias.group_form_names[formId] = newGroupName; // Update the corresponding value
+    all_criterias.group_form_names[formId] = newGroupName; 
 
     if (old_name !== newGroupName) {
       all_criterias.groups[newGroupName] = all_criterias.groups[old_name];
@@ -402,7 +401,7 @@ export function createForm(existingGroupName = null) {
 
   const rankInputs = formDiv.querySelectorAll('input[name="rank-min"], input[name="rank-max"]');
   function updateRankRange() {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     const rankMin = formDiv.querySelector('input[name="rank-min"]').value;
     const rankMax = formDiv.querySelector('input[name="rank-max"]').value;
     all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[
@@ -425,7 +424,7 @@ export function createForm(existingGroupName = null) {
 
   const heroCheckboxes = formDiv.querySelectorAll('input[name="heroes"]');
   function updateHeroSelection() {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     //Change name if name is standard
     if (formDiv.querySelector('input[name="dynamic-group-name"]').checked) {
       const selectedHeroes = Array.from(heroCheckboxes)
@@ -452,7 +451,7 @@ export function createForm(existingGroupName = null) {
 
       const old_name = all_criterias.group_form_names[formId];
       groupNameInput.value = newGroupName;
-      all_criterias.group_form_names[formId] = groupNameInput.value; // Update the corresponding value
+      all_criterias.group_form_names[formId] = groupNameInput.value;
       if (old_name !== groupNameInput.value) {
         all_criterias.groups[groupNameInput.value] = all_criterias.groups[old_name];
         delete all_criterias.groups[old_name];
@@ -484,7 +483,7 @@ export function createForm(existingGroupName = null) {
 
   const formatRadios = formDiv.querySelectorAll('input[name="format"]');
   function updateFormatSelection() {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     const selectedFormat = formDiv.querySelector('input[name="format"]:checked').value;
     all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[
       all_criterias.group_form_names[formId]
@@ -507,7 +506,7 @@ export function createForm(existingGroupName = null) {
   const startDateInput = formDiv.querySelector('input[name="start-date"]');
   const endDateInput = formDiv.querySelector('input[name="end-date"]');
   function updateDateRange() {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     const startDate = startDateInput.value;
     const endDate = endDateInput.value;
     all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[
@@ -562,7 +561,7 @@ export function createForm(existingGroupName = null) {
 
   // Add listener to save the group as selection
   formDiv.querySelector('.save-form-as-selection').addEventListener('click', async () => {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     const groupName = all_criterias.group_form_names[formId];
     if (!groupName) {
       alert('Group name is missing. Cannot save the group as a selection.');
@@ -600,8 +599,8 @@ export function createForm(existingGroupName = null) {
 
       const result = await response.json();
       console.log('Group saved as selection successfully:', result);
-      await loadSelectionNames(); // Refresh the selection names
-      await loadAllSelections(); // Refresh all selections
+      await loadSelectionNames(); 
+      await loadAllSelections(); 
       console.log('Selection refreshed successfully.');
       alert(`Group "${groupName}" saved as a selection successfully.`);
     } catch (error) {
@@ -633,7 +632,7 @@ export function createForm(existingGroupName = null) {
 
   // Add listener to the remove button
   formDiv.querySelector('.remove-form').addEventListener('click', () => {
-    const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+    const formId = formDiv.id.split('-').pop(); 
     const groupName = all_criterias.group_form_names[formId];
     delete all_criterias.groups[groupName];
     delete all_criterias.group_form_names[formId];
@@ -646,7 +645,7 @@ export function createForm(existingGroupName = null) {
 
   formsContainer.appendChild(formDiv);
 
-  const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
+  const formId = formDiv.id.split('-').pop(); 
   all_criterias.groups[all_criterias.group_form_names[formId]] = all_criterias.groups[
     all_criterias.group_form_names[formId]
   ] || { filter: {} };
@@ -699,7 +698,7 @@ export function addAndUpdateForms() {
   // Clear existing forms
   formsContainer.innerHTML = '';
   Object.keys(all_criterias.group_form_names).forEach((groupIndex) => {
-    const numericGroupIndex = parseInt(groupIndex, 10); // Ensure groupIndex is treated as a number
+    const numericGroupIndex = parseInt(groupIndex, 10); 
     console.log(
       'Re-adding form for group index:',
       numericGroupIndex,
@@ -772,7 +771,7 @@ export async function fetchDecklists(criteria) {
 export function setLegend(group_names) {
   console.log('Setting legend with group names:', group_names);
   console.log('Current group names:', all_criterias.group_form_names);
-  // Remove existing legend if any
+  
   d3.select('#legend').remove();
 
   // Create a new legend
@@ -815,7 +814,7 @@ export function setLegend(group_names) {
 }
 
 export function getUpdatedDecklists(data) {
-  // Create a copy of allDecklists and prepare it for easy lookup
+  
   let updatedDecklists = allDecklists != [] ? JSON.parse(JSON.stringify(allDecklists)) : data;
 
   updatedDecklists = Object.entries(updatedDecklists).flatMap(([group, decklists]) =>
@@ -854,8 +853,7 @@ export function getUpdatedDecklists(data) {
 export function timeseriesGraph(name_of_element, data) {
   console.log('Drawing visualization with data:', data);
 
-  d3.select(name_of_element).html(''); // Clear previous viz
-  // set the dimensions and margins of the graph
+  d3.select(name_of_element).html(''); 
 
   const width = parseInt(general_width * 0.7);
   const height = general_height;
@@ -866,7 +864,6 @@ export function timeseriesGraph(name_of_element, data) {
     left: general_margin.left + 30,
   };
 
-  // append the svg object to the body of the page
   var svg = d3
     .select(name_of_element)
     .append('svg')
@@ -890,16 +887,14 @@ export function timeseriesGraph(name_of_element, data) {
   const y = d3.scaleLinear().domain([0, 100]).range([height, 0]);
   svg.append('g').call(d3.axisLeft(y));
 
-  // Parse date strings into Date objects
   Object.values(data).forEach((groupData) => {
     groupData.forEach((d) => {
       d.date = new Date(d.date);
-      d.winrate.winrate = parseFloat(d.winrate.winrate); // Ensure winrate is a number
+      d.winrate.winrate = parseFloat(d.winrate.winrate);
     });
   });
 
   Object.entries(data).forEach(([group, group_data]) => {
-    // Add the line
     svg
       .append('path')
       .attr('id', `timeseries-line-${group.replaceAll(' ', '')}`)
@@ -1007,7 +1002,6 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   const button_margin = 10;
 
   function createMatchupPopup(form_heroes, all_criterias, name_of_element) {
-    // Check if the button already exists to avoid duplicates
     console.log('Creating matchup pop-up...');
     // Add a button to open the pop-up menu
     const addMatchupBtn = document.createElement('button');
@@ -1208,32 +1202,28 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
     });
   }
 
-  // Call the helper function
   const element = document.querySelector(name_of_element);
   if (!element.querySelector('button.manage-matchup-btn')) {
     createMatchupPopup(form_heroes, all_criterias, element);
   }
 
   console.log('Extracting dimensions...');
-  // Extract the list of dimensions we want to keep in the plot. Here I keep all except the column called Species
   const dimensions = [...data.Dimensions];
   delete data.Dimensions;
   delete data.selections;
   console.log('Dimensions:', dimensions);
-  data = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation issues
+  data = JSON.parse(JSON.stringify(data));
 
   const ideal_width = dimensions.length * 75;
   if (ideal_width > general_width) {
     width = ideal_width;
   }
 
-  // Set the size of the HTML element
   d3.select(name_of_element)
     .style('width', `${width + margin.left + margin.right}px`)
     .style('height', `${height + margin.top + margin.bottom}px`);
 
   console.log('Setting up SVG canvas...');
-  // append the svg object to the body of the page
   var svg = d3
     .select(name_of_element)
     .append('svg')
@@ -1245,13 +1235,11 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   console.log('Building scales for each dimension...');
 
   console.log('Setting up X scale...');
-  // Build the X scale -> it finds the best position for each Y axis
   var x = d3.scalePoint().range([0, width]).padding(0.5).domain(dimensions);
 
   const y_height = height - button_height - button_margin * 2;
 
   console.log('Setting up Y scales...');
-  // For each dimension, I build a linear scale. I store all in a y object
   var y = d3.scaleLinear().domain([0, 100]).range([y_height, 0]);
 
   console.log('Y scale:', y);
@@ -1344,19 +1332,15 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   // Draw the axis:
   svg
     .selectAll('myAxis')
-    // For each dimension of the dataset I add a 'g' element:
     .data(dimensions)
     .enter()
     .append('g')
-    // I translate this element to its right position on the x axis
     .attr('transform', function (d) {
       return 'translate(' + x(d) + ')';
     })
-    // And I build the axis with the call function
     .each(function (d) {
       d3.select(this).call(d3.axisLeft().scale(y));
     })
-    // Add axis title
     .append('text')
     .style('text-anchor', 'middle')
     .attr('y', -9)
@@ -1394,18 +1378,15 @@ export function parallelCoordinatesGraph(name_of_element, data, this_graph_filte
   let yMin, yMax;
   dimensions.forEach((dim) => {
     if (this_graph_filters[dim] === undefined) {
-      this_graph_filters[dim] = { min: 0, max: 100 }; // Initialize filter for this dimension
-      // Initial positions: bottom (min) and top (max)
+      this_graph_filters[dim] = { min: 0, max: 100 };
       yMin = y.range()[0];
       yMax = y.range()[1];
     } else {
-      // Use existing filter values
       const { min, max } = this_graph_filters[dim];
       yMin = y(min);
       yMax = y(max);
     }
 
-    // Group for the axis
     const axisGroup = svg.append('g').attr('class', `filter-squares-${dim.replaceAll(' ', '')}`);
 
     // Top square (max)
@@ -1478,13 +1459,11 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   let warningText;
   let fetchScatterPlotBtn;
 
-  // Set the dimensions of the div container
   scatterPlotDiv.style.width = `${width + margin.left + margin.right}px`;
   scatterPlotDiv.style.height = `${height + margin.top + margin.bottom}px`;
 
   if (!scatterPlotDiv.querySelector(`#update-scatter-plot-btn`)) {
     console.log('Setting fetch button for scatter plot...');
-    // Set the height and ensure alignment of the HTML element
     d3.select(name_of_element)
       .style('height', `${height + margin.top + margin.bottom}px`)
       .style('display', 'inline-block')
@@ -1508,7 +1487,6 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
     leftDiv.style.fontSize = '8px';
     leftDiv.id = 'scatter-plot-left-div';
 
-    // Append the left div to the parent div
     scatterPlotDiv.appendChild(leftDiv);
 
     // Add a button to fetch scatter plot data
@@ -1571,7 +1549,6 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
       }
     }
 
-    // Add click event listener to toggle zoomActive
     toggleZoomBtn.addEventListener('click', () => {
       toggleZoomState();
     });
@@ -1625,12 +1602,10 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
       }
     }
 
-    // Add click event listener to toggle brushActive
     toggleBrushBtn.addEventListener('click', () => {
       toggleBrushState();
     });
 
-    // Add keydown event listener for the B key to toggle brushActive
     document.addEventListener('keydown', (event) => {
       if (event.key === 'b' || event.key === 'B') {
         toggleBrushState();
@@ -1722,7 +1697,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
           loadingIndicator.style.left = '50%';
           loadingIndicator.style.transform = 'translate(-50%, -50%)';
           loadingIndicator.style.display = 'block';
-          parentElement.style.position = 'relative'; // Ensure parent has relative positioning
+          parentElement.style.position = 'relative'; 
           parentElement.appendChild(loadingIndicator);
 
           // Add CSS for the spinning animation if not already added
@@ -1761,18 +1736,14 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
           scatterData = await response.json();
           console.log('Fetched scatter plot data successfully:', scatterData);
 
-          // Clear previous scatter plot visualization
           d3.select(name_of_element).html('');
 
-          // Redraw scatter plot with the new data
           scatterPlotGraph(name_of_element, scatterData['scatter_plot_card_presence']);
         } catch (error) {
           console.error('Error fetching scatter plot data:', error);
         } finally {
-          // Remove the loading indicator
           loadingIndicator.remove();
         }
-        // Clear previous scatter plot visualization
         d3.select(name_of_element).html('');
 
         // Redraw scatter plot with the new data
@@ -1814,21 +1785,19 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
   }
 
   if (active) {
-    // Append the svg object to the specified element
     const svg_height = height + margin.top + margin.bottom;
     const svg = d3
       .select(name_of_element)
       .append('svg')
       .attr('width', svg_height)
       .attr('height', svg_height)
-      .style('display', 'inline-block') // Ensure it appears as an inline-block element
-      .style('vertical-align', 'top') // Align it to the top of the left column
-      .style('margin-left', '10px') // Add some spacing from the left column
+      .style('display', 'inline-block') 
+      .style('vertical-align', 'top') 
+      .style('margin-left', '10px') 
       .style('background-color', '#f0f0f0ff');
 
     scatter_updated = true;
 
-    // Extract metadata and remove it from the data object
     const metadata = graph_data.Metadata;
     const data = graph_data.data;
     console.log('Data for scatter plot:', data);
@@ -1898,7 +1867,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
           .attr('stroke', 'black')
           .attr('stroke-dasharray', '4,2')
           .attr('stroke-width', 1)
-          .raise(); // Bring the point to the top
+          .raise(); 
         tooltip
           .style('display', 'block')
           .html(
@@ -1920,7 +1889,7 @@ export function scatterPlotGraph(name_of_element, graph_data, active = true) {
         tooltip.style('display', 'none');
       })
       .on('click', function (event, d) {
-        event.stopPropagation(); // Prevent triggering other click events
+        event.stopPropagation(); 
         const circle = d3.select(this);
         const isSelected = circle.classed('selected');
 
@@ -2133,7 +2102,6 @@ export function fillTable(data) {
           .attr('data-column', column.toLowerCase().replace(' ', '_'))
           .style('font-size', '8px');
       } else if (['Min Rank', 'Max Rank'].includes(column)) {
-        // Numeric range filter for Rank
         filterInput = filterColumnWrapper
           .append('input')
           .attr('type', 'number')
@@ -2141,7 +2109,6 @@ export function fillTable(data) {
           .attr('data-column', column.toLowerCase().replace(' ', '_'))
           .style('font-size', '8px');
       } else if (column === 'Start Date' || column === 'End Date') {
-        // Date filter
         filterInput = filterColumnWrapper
           .append('input')
           .attr('type', 'date')
@@ -2149,7 +2116,6 @@ export function fillTable(data) {
           .attr('data-column', column.toLowerCase().replace(' ', '_'))
           .style('font-size', '8px');
       } else if (column === 'Selected') {
-        // Checkbox filter for 'Selected'
         filterInput = filterColumnWrapper
           .append('select')
           .attr('data-column', column.toLowerCase().replace(' ', '_'))
@@ -2179,14 +2145,13 @@ export function fillTable(data) {
 
           Object.keys(filters).forEach((key) => {
             const header = filter_to_header_map[key.toLowerCase()];
-            if (!header) return; // Skip if no matching header
+            if (!header) return; 
 
             const cell = row.select(`td:nth-child(${headers.indexOf(header) + 1})`); // Match the column based on the header
             const filter = filters[key];
             key = key.toLowerCase();
 
             if (key === 'selected') {
-              // Handle 'Selected' filter
               const checkbox = cell.select('input[type="checkbox"]');
               if (filter === 'true' && !checkbox.property('checked')) {
                 isVisible = false;
@@ -2194,7 +2159,6 @@ export function fillTable(data) {
                 isVisible = false;
               }
             } else if (key === 'start date' || key === 'end date') {
-              // Handle 'Start Date' and 'End Date' filters
               const cellDate = new Date(cell.text());
               const filterDate = new Date(filter);
               if (key === 'start date' && filter && (!cellDate || cellDate < filterDate)) {
@@ -2203,7 +2167,6 @@ export function fillTable(data) {
                 isVisible = false;
               }
             } else if (key.startsWith('min') || key.startsWith('max')) {
-              // Handle numeric range filters
               const cellValue = parseInt(cell.text());
               const filterValue = parseInt(filter);
               if (key.startsWith('min') && filter && (!cellValue || cellValue < filterValue)) {
@@ -2212,7 +2175,6 @@ export function fillTable(data) {
                 isVisible = false;
               }
             } else {
-              // Handle general text filters
               if (filter && (!cell || !cell.text().toLowerCase().includes(filter))) {
                 isVisible = false;
               }
@@ -2249,7 +2211,7 @@ export function fillTable(data) {
     // Create the table element
     const table = d3
       .select(tableContainer)
-      .html('') // Clear previous content
+      .html('') 
       .append('table')
       .attr('id', 'decklists-table')
       .style('border-collapse', 'collapse')
@@ -2600,7 +2562,6 @@ export function fillTable(data) {
       }
     });
 
-    // Create the table body
     tbody = table.append('tbody');
   }
 
@@ -2659,7 +2620,6 @@ export function fillTable(data) {
       const decklistId = checkbox.getAttribute('data-id');
       const isChecked = checkbox.checked;
 
-        // Find the corresponding scatter plot point
         const scatterPoint = d3.select(`.scatter-circle[data-id="${sanitizeId(decklistId)}"]`);
 
         if (!scatterPoint.empty()) {
@@ -2704,10 +2664,10 @@ export function fillTable(data) {
         // Add card list grouped by color with bordered divs
         const cardListContainer = popup.append('div').style('max-height', '60vh').style('overflow-y', 'auto');
         const colorBackgrounds = {
-          '': '#e1e1e1ff', // Light grey for no color
-          'Red': '#ffd3d3ff', // Light red
-          'Yel': '#ffffc8ff', // Light yellow
-          'Blu': '#c6e2ffff', // Light blue
+          '': '#e1e1e1ff', 
+          'Red': '#ffd3d3ff', 
+          'Yel': '#ffffc8ff', 
+          'Blu': '#c6e2ffff', 
         };
 
         // Group cards by color
@@ -2726,7 +2686,7 @@ export function fillTable(data) {
             .style('margin-bottom', '10px')
             .style('padding', '10px')
             .style('border', '1px solid black')
-            .style('background-color', colorBackgrounds[color] || '#d3d3d3'); // Default to light grey if color is not found
+            .style('background-color', colorBackgrounds[color] || '#d3d3d3'); 
 
           // Add header with color name
           const colorName = color === '' ? 'Colorless' : color === 'Red' ? 'Red' : color === 'Yel' ? 'Yellow' : color === 'Blu' ? 'Blue' : 'Unknown';
@@ -2784,7 +2744,6 @@ export async function getDataAndUpdateViz() {
     if (data.length === 0) {
       console.warn('No data returned for the given criteria.');
     } else {
-      // color palette
       color = d3
         .scaleOrdinal()
         .domain(
@@ -2820,25 +2779,24 @@ export async function getDataAndUpdateViz() {
 
       // Draw the graphs
       console.log('Drawing graphs...');
-      d3.select('#timeseries_viz').html(''); // Clear previous timeseries visualization if present
+      d3.select('#timeseries_viz').html(''); 
       timeseriesGraph('#timeseries_viz', data['timeseries_winrates']);
-      d3.select('#parallel_coordinates_viz').html(''); // Clear previous parallel coordinates visualization if present
+      d3.select('#parallel_coordinates_viz').html(''); 
       if (graphs_filters['parallel_coordinates_matchups'] === undefined) {
         graphs_filters['parallel_coordinates_matchups'] = {};
       }
-      d3.select('#parallel_coordinates_viz').html(''); // Clear previous parallel coordinates visualization if present
+      d3.select('#parallel_coordinates_viz').html(''); 
       parallelCoordinatesGraph(
         '#parallel_coordinates_viz',
         data['parallel_coordinates_matchups'],
         graphs_filters['parallel_coordinates_matchups']
       );
       if (data['scatter_plot_card_presence']) {
-        d3.select('#scatter_plot_viz').html(''); // Clear previous scatter plot visualization if present
+        d3.select('#scatter_plot_viz').html(''); 
         scatterPlotGraph('#scatter_plot_viz', data['scatter_plot_card_presence']);
       } else {
         scatterPlotGraph('#scatter_plot_viz', null, false);
       }
-      // Fill the table
       fillTable(data['grouped_decklists']);
       console.log('All visualizations updated successfully.');
     }
@@ -2850,10 +2808,8 @@ export async function getDataAndUpdateViz() {
 export async function restartViz() {
   console.log('Resetting all criteria and forms...');
 
-  // Clear all forms
   formsContainer.innerHTML = '';
 
-  // Reset all_criterias object
   all_criterias = {
     filters: {},
     group_form_names: {},
@@ -2865,15 +2821,12 @@ export async function restartViz() {
     selections: [],
   };
 
-  // Reset group index
   group_index = 0;
 
-  // Reset graph filters!
   for (const key in graphs_filters) {
     delete graphs_filters[key];
   }
 
-  // Add the first form
   createForm();
 
   console.log('All criteria and forms have been reset.');
@@ -2890,7 +2843,6 @@ submitAllBtn.addEventListener('click', async () => {
   restartViz();
 });
 
-// Load search listener
 const searchList = document.getElementById('search-list');
 
 async function loadSearchNames() {
@@ -2909,8 +2861,7 @@ async function loadSearchNames() {
     const searchNames = await response.json();
     console.log('Fetched search names successfully:', searchNames);
 
-    // Populate the search list dropdown
-    searchList.innerHTML = ''; // Clear existing options
+    searchList.innerHTML = '';
     searchList.innerHTML = searchNames
       .map(
         (name) => `
@@ -2924,7 +2875,7 @@ async function loadSearchNames() {
     // Add event listeners for delete button
     const deleteButton = document.getElementById('delete-search');
     deleteButton.addEventListener('click', async (event) => {
-      event.stopPropagation(); // Prevent the dropdown from opening
+      event.stopPropagation();
       const selectedOption = document.querySelector('#search-list').value;
       console.log('Currently selected search:', selectedOption);
       if (!selectedOption) {
@@ -2956,7 +2907,6 @@ async function loadSearchNames() {
         console.log(`Search "${selectedOption}" deleted successfully.`);
         alert(`Search "${selectedOption}" deleted successfully.`);
 
-        // Remove the option from the dropdown
         const optionToRemove = document.querySelector(`option[value="${selectedOption}"]`);
         if (optionToRemove) {
           optionToRemove.remove();
@@ -3004,7 +2954,6 @@ export function setupLoadSearchListener() {
       const loadedSearch = await response.json();
       console.log('Loaded search successfully:', JSON.parse(JSON.stringify(loadedSearch)));
 
-      // Update all_criterias with the loaded search data
       all_criterias.group_form_names = loadedSearch.all_criterias.group_form_names || {};
       all_criterias.filters = loadedSearch.all_criterias.filters || {};
       all_criterias.groups = loadedSearch.all_criterias.groups || {};
@@ -3135,7 +3084,7 @@ export async function loadAllSelections() {
         if (selection?.name) {
           console.log(`Loading selection: ${selection.name}`, selection);
           let to_save = { ...selection };
-          delete to_save.name; // Remove name from the selection object
+          delete to_save.name; 
           selections[selection.name] = to_save;
         } else {
           console.warn('Invalid selection format:', selection);
@@ -3148,8 +3097,7 @@ export async function loadAllSelections() {
 
     console.log('Adding selections to dropdown...');
     const selectionList = document.getElementById('selection-list');
-    // Populate the selection list dropdown
-    selectionList.innerHTML = ''; // Clear existing options
+    selectionList.innerHTML = '';
     selectionList.innerHTML = selections_names
       .map(
         (name) => `
@@ -3204,9 +3152,8 @@ export async function loadAllSelections() {
   }
 }
 
-// Add event listeners for delete button
 deleteButton.addEventListener('click', async (event) => {
-  event.stopPropagation(); // Prevent the dropdown from opening
+  event.stopPropagation();
   const selectedOption = document.querySelector('#selection-list').value;
   console.log('Currently selected selection:', selectedOption);
   if (!selectedOption) {
@@ -3238,7 +3185,6 @@ deleteButton.addEventListener('click', async (event) => {
     console.log(`Selection "${selectedOption}" deleted successfully.`);
     alert(`Selection "${selectedOption}" deleted successfully.`);
 
-    // Remove the option from the dropdown
     const optionToRemove = document.querySelector(`option[value="${selectedOption}"]`);
     if (optionToRemove) {
       optionToRemove.remove();
@@ -3283,12 +3229,10 @@ refreshBtn.addEventListener('click', async () => {
   }
 });
 
-// Aggiungi il primo form all'avvio
 if (Object.keys(all_criterias.group_form_names).length === 0) {
   createForm();
 }
 
-// Fetch all decklists and fill the table
 export async function fetchAndFillAllDecklists() {
   try {
     const response = await fetch('http://localhost:3000/api/decklists', {
@@ -3305,7 +3249,6 @@ export async function fetchAndFillAllDecklists() {
     allDecklists = await response.json();
     console.log('Fetched all decklists successfully:', allDecklists);
 
-    // Set the color function for groups and selections
     color = d3
       .scaleOrdinal()
       .domain(
@@ -3313,9 +3256,8 @@ export async function fetchAndFillAllDecklists() {
           all_criterias.selections ? all_criterias.selections : []
         )
       )
-      .range(range_of_colors); // Ensure "No Group" always has the same color
+      .range(range_of_colors);
 
-    // Fill the table with the fetched decklists
     fillTable(allDecklists);
   } catch (error) {
     console.error('Error fetching all decklists:', error);
@@ -3323,7 +3265,6 @@ export async function fetchAndFillAllDecklists() {
   }
 }
 
-// Fetch and fill the table with all decklists on page load
 await fetchAndFillAllDecklists();
 
 restartViz();
