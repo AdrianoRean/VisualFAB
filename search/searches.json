@@ -168,5 +168,113 @@
         "type": "added"
       }
     }
+  },
+  {
+    "search_name": "Dori Strane",
+    "all_criterias": {
+      "filters": {},
+      "group_form_names": {
+        "1": "Dorinthea Ironsong",
+        "3": "dori s"
+      },
+      "groups": {
+        "Dorinthea Ironsong": {
+          "filter": {
+            "Date": {
+              "precision": "DATE",
+              "value": {
+                "min": "2019-01-01T00:00",
+                "max": "2025-09-07T16:04"
+              }
+            },
+            "Format": {
+              "precision": "IS",
+              "value": "Classic Constructed"
+            },
+            "Rank": {
+              "precision": "RANGE",
+              "value": {
+                "min": "1",
+                "max": "512"
+              }
+            },
+            "Hero": {
+              "precision": "IS-IN",
+              "value": [
+                "Dorinthea Ironsong"
+              ]
+            },
+            "List Id": {
+              "precision": "COMPOUND",
+              "value": {
+                "IS-IN": [],
+                "IS-NOT-IN": [
+                  "49992576 - Jul. 5, 2025 - National Championship 2025 - Philippines",
+                  "Diego de Alba Montes - Jul. 5, 2025National Championship 2025",
+                  "31687735 - Jul. 5, 2025 - National Championship 2025 - Hungary"
+                ],
+                "exclusive": false
+              }
+            }
+          }
+        },
+        "dori s": {
+          "filter": {
+            "List Id": {
+              "precision": "COMPOUND",
+              "value": {
+                "IS-IN": [
+                  "31687735 - Jul. 5, 2025 - National Championship 2025 - Hungary",
+                  "Diego de Alba Montes - Jul. 5, 2025National Championship 2025",
+                  "49992576 - Jul. 5, 2025 - National Championship 2025 - Philippines"
+                ],
+                "IS-NOT-IN": [],
+                "exclusive": true
+              }
+            }
+          }
+        }
+      },
+      "graphs": {
+        "timeseries_winrates": {
+          "type": "timeseries"
+        },
+        "parallel_coordinates_matchups": {
+          "type": "parallel_coordinates",
+          "matchups": []
+        }
+      },
+      "selections": []
+    },
+    "special_decklists": {
+      "dori s": [
+        {
+          "listId": "31687735 - Jul. 5, 2025 - National Championship 2025 - Hungary",
+          "type": "added"
+        },
+        {
+          "listId": "Diego de Alba Montes - Jul. 5, 2025National Championship 2025",
+          "type": "added"
+        },
+        {
+          "listId": "49992576 - Jul. 5, 2025 - National Championship 2025 - Philippines",
+          "type": "added"
+        }
+      ],
+      "Dorinthea Ironsong": [
+        {
+          "listId": "49992576 - Jul. 5, 2025 - National Championship 2025 - Philippines",
+          "type": "removed"
+        },
+        {
+          "listId": "Diego de Alba Montes - Jul. 5, 2025National Championship 2025",
+          "type": "removed"
+        },
+        {
+          "listId": "31687735 - Jul. 5, 2025 - National Championship 2025 - Hungary",
+          "type": "removed"
+        }
+      ]
+    }
   }
 ]

@@ -394,12 +394,20 @@ function constructCardMatrix(grouped_decklists) {
     return {cardMatrix, cardInfo};
 }
 
-async function performUMAP(decklistsMatrix) {
+async function performUMAP(decklistsMatrix, nNeighbors = undefined) {
 
     const {cardMatrix, cardInfo} = decklistsMatrix;
     //shape = [n_decks, n_cards]
+    const nDecklists = cardMatrix.length;
+    if (nNeighbors === undefined){
+        nNeighbors = Math.max(2, Math.min(15, Math.ceil(nDecklists * 0.15)));
+    }
+
+    console.log(`Number of neighbors for UMAP: ${nNeighbors}`);
+
     const umap = new UMAP({
         nComponents: 2,
+        nNeighbors: nNeighbors,
         minDist: 0.1,
         metric: 'cosine', //'euclidean' 'jaccard'
     });
@@ -423,7 +431,7 @@ async function performUMAP(decklistsMatrix) {
     console.log('UMAP reshaped embedding range:', { minX: min_x, maxX: max_x, minY: min_y, maxY: max_y });
     return { 
         "data": embedding, 
-        "Metadata": { min_x: min_x, max_x: max_x, min_y: min_y, max_y: max_y } 
+        "Metadata": { min_x: min_x, max_x: max_x, min_y: min_y, max_y: max_y, nNeighbors } 
     };
 }
 
@@ -594,7 +602,7 @@ app.post('/api/decklists/calculate', async (req, res) => {
                 break;
             case 'scatter_plot':
                 // Call the function to handle scatter plot graph
-                let scatter_plot_data = await performUMAP(constructCardMatrix(grouped_decklists));
+                let scatter_plot_data = await performUMAP(constructCardMatrix(grouped_decklists), request_data.nNeighbors);
                 json_response[graph_name] = scatter_plot_data;
                 break;
             default:

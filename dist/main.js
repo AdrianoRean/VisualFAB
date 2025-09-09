@@ -33798,6 +33798,7 @@ const noGroupColor = '#44AA99';
 let zoomActive = false;
 let brushActive = false;
 let brush;
+let isEdited = false;
 
 // Set the dimensions and margins of the graphs
 const general_margin = { top: 10, right: 0, bottom: 30, left: 0 },
@@ -34062,9 +34063,9 @@ function createForm(existingGroupName = null) {
   showSpecialDecklistsBtn.addEventListener('click', () => {
     const formId = formDiv.id.split('-').pop(); // Extract the group index from the form ID
     const groupName = all_criterias.group_form_names[formId];
-    const groupSpecialDecklists = Object.entries(special_decklists)
-      .filter(([_, details]) => details.group === groupName)
-      .map(([decklistId, details]) => ({ decklistId, type: details.type }));
+    special_decklists[groupName] = special_decklists[groupName] || [];
+    const groupSpecialDecklists = Object.values(special_decklists[groupName])
+      .map((details) => ({ decklistId: details.listId, type: details.type }));
 
     // Create the pop-up container
     const popup = d3__WEBPACK_IMPORTED_MODULE_0__.select('body')
@@ -35390,8 +35391,50 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
     warningText.style.color = 'red';
     warningText.style.fontWeight = 'bold';
     warningText.id = 'scatter-plot-warning';
-    warningText.style.fontSize = '10px';
+    warningText.style.fontSize = '8px';
     leftDiv.appendChild(warningText);
+
+    // Add a bordered div to show the number of neighbors used for UMAP
+    const neighborsDiv = document.createElement('div');
+    neighborsDiv.style.border = '1px solid black';
+    neighborsDiv.style.padding = '5px';
+    neighborsDiv.style.fontSize = '8px';
+
+    // Create an input field for editing the number of neighbors
+    const neighborsInput = document.createElement('input');
+    neighborsInput.id = 'neighbors-input';
+    isEdited = false;
+    neighborsInput.type = 'number';
+    neighborsInput.style.width = '35px';
+    neighborsInput.style.backgroundColor = isEdited ? 'yellow' : 'white';
+    neighborsInput.min = 1;
+    neighborsInput.value = graph_data?.Metadata?.nNeighbors || 1;
+
+    // Add hover tooltip for neighbors input
+    neighborsDiv.addEventListener('mouseover', (event) => {
+      tooltip
+        .style('display', 'block')
+        .html('If left unchanged, the number will be determined automatically.')
+        .style('left', event.pageX + 10 + 'px')
+        .style('top', event.pageY - 28 + 'px');
+    });
+    neighborsDiv.addEventListener('mousemove', (event) => {
+      tooltip.style('left', event.pageX + 10 + 'px').style('top', event.pageY - 28 + 'px');
+    });
+    neighborsDiv.addEventListener('mouseout', () => {
+      tooltip.style('display', 'none');
+    });
+    
+
+    // Add an event listener to detect changes
+    neighborsInput.addEventListener('input', () => {
+      isEdited = true;
+      neighborsInput.style.backgroundColor = 'yellow';
+    });
+
+    neighborsDiv.textContent = `N. Neighbors (UMAP): `;
+    neighborsDiv.appendChild(neighborsInput);
+    leftDiv.appendChild(neighborsDiv);
 
     // Add fetch button listener
     fetchScatterPlotBtn.addEventListener('click', async () => {
@@ -35402,7 +35445,7 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
           groups: all_criterias.groups,
           selections: all_criterias.selections,
           graphs: {
-            scatter_plot_card_presence: { type: 'scatter_plot' },
+            scatter_plot_card_presence: { type: 'scatter_plot', nNeighbors: isEdited ? parseInt(neighborsInput.value) : undefined },
           },
         };
         console.log('Sending request with body:', json_body);
@@ -35525,6 +35568,11 @@ function scatterPlotGraph(name_of_element, graph_data, active = true) {
     const metadata = graph_data.Metadata;
     const data = graph_data.data;
     console.log('Data for scatter plot:', data);
+
+    const neighborsInput = d3__WEBPACK_IMPORTED_MODULE_0__.select('#neighbors-input');
+    isEdited = false;
+    neighborsInput.property('value', metadata.nNeighbors);
+    neighborsInput.style('background-color', 'white');
 
     const graph_margins = 5;
 
@@ -36010,7 +36058,7 @@ function fillTable(data) {
               if (selectedOption === 'remove') {
                 d3__WEBPACK_IMPORTED_MODULE_0__.selectAll('.select-decklist:checked').each(function () {
                   const row = d3__WEBPACK_IMPORTED_MODULE_0__.select(this.closest('tr'));
-                  const groupNames = row.select('td:nth-child(2)').text().trim().split(', ');
+                  const groupNames = row.select('td:nth-child(2)').text().trim().split(',');
                   const listId = row.select('td:nth-child(3)').text().trim();
 
                   // Create a dropdown for the user to select a group
@@ -36065,8 +36113,7 @@ function fillTable(data) {
                           all_criterias.groups[selectedGroupName].filter = {};
                         }
                         if (
-                          special_decklists[listId]?.group == selectedGroupName &&
-                          special_decklists[listId]?.type == 'added'
+                          special_decklists[selectedGroupName]?.find((d) => d.listId === listId)?.type == 'added'
                         ) {
                           // If the decklist was previously marked as added to the same group, we need to undo that
                           if (
@@ -36083,7 +36130,7 @@ function fillTable(data) {
                                 index,
                                 1
                               );
-                              delete special_decklists[listId]; // Remove from special_decklists as it's no longer special
+                              delete special_decklists[selectedGroupName].find((d) => d.listId === listId); // Remove from special_decklists as it's no longer special
                             }
                           }
                         } else {
@@ -36098,7 +36145,8 @@ function fillTable(data) {
                             };
                           }
                           all_criterias.groups[selectedGroupName].filter['List Id'].value['IS-NOT-IN'].push(listId);
-                          special_decklists[listId] = { group: selectedGroupName, type: 'removed' };
+                          special_decklists[selectedGroupName] = special_decklists[selectedGroupName] || [];
+                          special_decklists[selectedGroupName].push({ listId: listId, type: 'removed' });
                         }
                       }
                       alert(
@@ -36112,6 +36160,8 @@ function fillTable(data) {
                 });
               }
               if (selectedOption === 'add') {
+                const row = d3__WEBPACK_IMPORTED_MODULE_0__.select(this.closest('tr'));
+                const listId = row.select('td:nth-child(3)').text().trim();
                 const groupNames = Object.keys(all_criterias.groups);
                 const groupName = document.createElement('select');
                 groupName.id = 'group-name-dropdown';
@@ -36146,6 +36196,7 @@ function fillTable(data) {
                 cancelButton.style.margin = '10px';
                 cancelButton.style.fontSize = '8px';
 
+
                 group_popup.appendChild(
                   popup.appendChild(document.createTextNode(`Select a group to add the decklist (ID: ${listId}) from:`))
                 );
@@ -36169,13 +36220,13 @@ function fillTable(data) {
                         if (!all_criterias.groups[selectedGroupName].filter) {
                           all_criterias.groups[selectedGroupName].filter = {};
                         }
-                        if (special_decklists[listId]?.group == selectedGroupName && special_decklists[listId]?.type == 'removed') {
+                        if (special_decklists[selectedGroupName]?.find((d) => d.id === listId)?.type == 'removed') {
                           // If the decklist was previously marked as removed from the same group, we need to undo that
                           if (all_criterias.groups[selectedGroupName].filter['List Id'] && Object.keys(all_criterias.groups[selectedGroupName].filter['List Id']?.value).includes('IS-NOT-IN')) {
                             const index = all_criterias.groups[selectedGroupName].filter['List Id'].value["IS-NOT-IN"].indexOf(listId);
                             if (index > -1) {
                               all_criterias.groups[selectedGroupName].filter['List Id'].value["IS-NOT-IN"].splice(index, 1);
-                              delete special_decklists[listId]; // Remove from special_decklists as it's no longer special
+                              delete special_decklists[selectedGroupName].find((d) => d.listId === listId); // Remove from special_decklists as it's no longer special
                             }
                           }
                         } else {
@@ -36190,7 +36241,8 @@ function fillTable(data) {
                             };
                           }
                           all_criterias.groups[selectedGroupName].filter['List Id'].value["IS-IN"].push(listId);
-                          special_decklists[listId] = { group: selectedGroupName, type: 'added' };
+                          special_decklists[selectedGroupName] = special_decklists[selectedGroupName] || [];
+                          special_decklists[selectedGroupName].push({ listId: listId, type: 'added' });
                         }
                       }
                     });
@@ -36260,7 +36312,8 @@ function fillTable(data) {
                       const row = d3__WEBPACK_IMPORTED_MODULE_0__.select(this.closest('tr'));
                       const listId = row.select('td:nth-child(3)').text().trim();
                       all_criterias.groups[newGroupName].filter['List Id'].value["IS-IN"].push(listId);
-                      special_decklists[listId] = { group: newGroupName, type: 'added' };
+                      special_decklists[newGroupName] = special_decklists[newGroupName] || [];
+                      special_decklists[newGroupName].push({ listId: listId, type: 'added' });
                     });
                   }
                   alert(`New group created. Please refresh the Exploration to see changes.`);
